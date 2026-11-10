@@ -1,0 +1,579 @@
+{
+  "entities": {
+    "Quote": {
+      "title": "Quote",
+      "description": "Orçamento ou pedido de impressão 3D salvo pelo usuário.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID do usuário proprietário do orçamento.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Nome do cliente solicitante.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "projectName": {
+          "type": "string",
+          "description": "Nome da peça ou projeto 3D.",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "technology": {
+          "type": "string",
+          "description": "Tecnologia de impressão utilizada.",
+          "enum": ["FDM", "SLA_Resina"]
+        },
+        "presetId": {
+          "type": "string",
+          "description": "Identificador do preset rápido utilizado.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "weightGrams": {
+          "type": "number",
+          "description": "Peso unitário da peça com suportes em gramas."
+        },
+        "filamentPricePerKg": {
+          "type": "number",
+          "description": "Preço do filamento ou resina por kg em R$."
+        },
+        "printTimeHours": {
+          "type": "number",
+          "description": "Horas inteiras de impressão por unidade ou lote."
+        },
+        "printTimeMinutes": {
+          "type": "number",
+          "description": "Minutos adicionais de impressão."
+        },
+        "printerPowerWatts": {
+          "type": "number",
+          "description": "Consumo médio da impressora em Watts."
+        },
+        "energyRateKwh": {
+          "type": "number",
+          "description": "Tarifa de energia elétrica em R$/kWh."
+        },
+        "printerCost": {
+          "type": "number",
+          "description": "Custo de aquisição da impressora em R$."
+        },
+        "printerLifespanHours": {
+          "type": "number",
+          "description": "Vida útil estimada da máquina em horas."
+        },
+        "laborHourlyRate": {
+          "type": "number",
+          "description": "Custo da hora de trabalho humana em R$/h."
+        },
+        "laborHours": {
+          "type": "number",
+          "description": "Horas gastas em fatiamento, acabamento e pós-processamento."
+        },
+        "batchQuantity": {
+          "type": "number",
+          "description": "Quantidade de unidades no lote."
+        },
+        "profitMarginPercent": {
+          "type": "number",
+          "description": "Margem de lucro desejada em percentual."
+        },
+        "failureRiskPercent": {
+          "type": "number",
+          "description": "Taxa de risco de falha e retrabalho em percentual."
+        },
+        "unitCost": {
+          "type": "number",
+          "description": "Custo real unitário calculado em R$."
+        },
+        "unitPrice": {
+          "type": "number",
+          "description": "Preço de venda unitário sugerido em R$."
+        },
+        "totalPrice": {
+          "type": "number",
+          "description": "Preço total do lote sugerido em R$."
+        },
+        "netProfit": {
+          "type": "number",
+          "description": "Lucro líquido total do lote em R$."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status comercial do orçamento.",
+          "enum": ["draft", "approved", "completed"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação no servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp da última atualização no servidor."
+        }
+      },
+      "required": [
+        "ownerId",
+        "clientName",
+        "projectName",
+        "technology",
+        "presetId",
+        "weightGrams",
+        "filamentPricePerKg",
+        "printTimeHours",
+        "printTimeMinutes",
+        "printerPowerWatts",
+        "energyRateKwh",
+        "printerCost",
+        "printerLifespanHours",
+        "laborHourlyRate",
+        "laborHours",
+        "batchQuantity",
+        "profitMarginPercent",
+        "failureRiskPercent",
+        "unitCost",
+        "unitPrice",
+        "totalPrice",
+        "netProfit",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Lançamento financeiro de entrada ou saída do fluxo de caixa.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID do usuário proprietário.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Descrição do lançamento financeiro.",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "type": {
+          "type": "string",
+          "description": "Tipo da movimentação financeira.",
+          "enum": ["income", "expense"]
+        },
+        "category": {
+          "type": "string",
+          "description": "Categoria operacional do lançamento.",
+          "enum": [
+            "venda_direta",
+            "encomenda_lote",
+            "prototipagem",
+            "filamento_resina",
+            "pecas_reposicao",
+            "energia",
+            "manutencao",
+            "outros"
+          ]
+        },
+        "amount": {
+          "type": "number",
+          "description": "Valor em R$ da transação."
+        },
+        "dateIso": {
+          "type": "string",
+          "description": "Data de competência da transação (YYYY-MM-DD).",
+          "minLength": 10,
+          "maxLength": 25
+        },
+        "notes": {
+          "type": "string",
+          "description": "Observações complementares.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação no servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de atualização no servidor."
+        }
+      },
+      "required": [
+        "ownerId",
+        "title",
+        "type",
+        "category",
+        "amount",
+        "dateIso",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Spool": {
+      "title": "Spool",
+      "description": "Carretel de filamento ou frasco de resina em estoque.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID do usuário proprietário do estoque.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nome identificador da bobina ou resina.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "brand": {
+          "type": "string",
+          "description": "Marca do fabricante do material.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "materialType": {
+          "type": "string",
+          "description": "Tipo de polímero ou resina.",
+          "enum": ["PLA", "PETG", "ABS", "ASA", "TPU", "Resina_Standard", "Resina_ABS_Like"]
+        },
+        "colorName": {
+          "type": "string",
+          "description": "Nome da cor do material.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "colorHex": {
+          "type": "string",
+          "description": "Código hexadecimal da cor.",
+          "minLength": 4,
+          "maxLength": 9,
+          "pattern": "^#[0-9a-fA-F]{3,8}$"
+        },
+        "initialWeightGrams": {
+          "type": "number",
+          "description": "Peso inicial líquido do material em gramas."
+        },
+        "remainingWeightGrams": {
+          "type": "number",
+          "description": "Peso restante atual do material em gramas."
+        },
+        "pricePaid": {
+          "type": "number",
+          "description": "Valor pago pela bobina ou frasco em R$."
+        },
+        "minAlertGrams": {
+          "type": "number",
+          "description": "Limite mínimo em gramas para alerta de reposição."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação no servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de atualização no servidor."
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "brand",
+        "materialType",
+        "colorName",
+        "colorHex",
+        "initialWeightGrams",
+        "remainingWeightGrams",
+        "pricePaid",
+        "minAlertGrams",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Produto 3D criado a partir da calculadora para catálogo e vendas rápidas.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID do usuário proprietário do produto.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nome comercial do produto 3D.",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "sku": {
+          "type": "string",
+          "description": "Código SKU ou referência do produto.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "category": {
+          "type": "string",
+          "description": "Categoria do produto.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "technology": {
+          "type": "string",
+          "description": "Tecnologia de impressão (FDM ou SLA_Resina).",
+          "enum": ["FDM", "SLA_Resina"]
+        },
+        "weightGrams": {
+          "type": "number",
+          "description": "Peso unitário em gramas."
+        },
+        "printTimeHours": {
+          "type": "number",
+          "description": "Horas de impressão por unidade."
+        },
+        "printTimeMinutes": {
+          "type": "number",
+          "description": "Minutos adicionais de impressão por unidade."
+        },
+        "filamentPricePerKg": {
+          "type": "number",
+          "description": "Custo base do material por kg (R$)."
+        },
+        "unitCost": {
+          "type": "number",
+          "description": "Custo unitário real calculado (R$)."
+        },
+        "unitPrice": {
+          "type": "number",
+          "description": "Preço de venda unitário padrão (R$)."
+        },
+        "profitMarginPercent": {
+          "type": "number",
+          "description": "Margem de lucro configurada (%)."
+        },
+        "stockQuantity": {
+          "type": "number",
+          "description": "Quantidade disponível em estoque pronta-entrega."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detalhes técnicos ou observações do produto.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação no servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de atualização no servidor."
+        }
+      },
+      "required": [
+        "ownerId",
+        "name",
+        "sku",
+        "category",
+        "technology",
+        "weightGrams",
+        "printTimeHours",
+        "printTimeMinutes",
+        "filamentPricePerKg",
+        "unitCost",
+        "unitPrice",
+        "profitMarginPercent",
+        "stockQuantity",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Registro de venda realizada incluindo produtos do catálogo, data, horário, cliente e detalhes financeiros.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID do usuário proprietário da venda.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "clientName": {
+          "type": "string",
+          "description": "Nome do cliente comprador.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "clientContact": {
+          "type": "string",
+          "description": "Contato do cliente (WhatsApp, telefone, e-mail ou documento).",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "saleDate": {
+          "type": "string",
+          "description": "Dia da venda (YYYY-MM-DD).",
+          "minLength": 10,
+          "maxLength": 25
+        },
+        "saleTime": {
+          "type": "string",
+          "description": "Horário da venda (HH:mm).",
+          "minLength": 4,
+          "maxLength": 10
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Forma de pagamento utilizada.",
+          "enum": ["PIX", "Cartao_Credito", "Cartao_Debito", "Dinheiro", "Boleto", "Transferencia"]
+        },
+        "salesChannel": {
+          "type": "string",
+          "description": "Canal onde a venda foi realizada.",
+          "enum": ["WhatsApp", "Instagram", "Mercado_Livre", "Shopee", "Loja_Propria", "Balcao"]
+        },
+        "productName": {
+          "type": "string",
+          "description": "Resumo principal dos produtos vendidos.",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "itemsSummary": {
+          "type": "string",
+          "description": "Detalhamento dos itens, SKUs e quantidades da venda.",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "totalQuantity": {
+          "type": "number",
+          "description": "Quantidade total de unidades vendidas."
+        },
+        "subtotalAmount": {
+          "type": "number",
+          "description": "Subtotal bruto dos produtos (R$)."
+        },
+        "discountAmount": {
+          "type": "number",
+          "description": "Desconto concedido na venda (R$)."
+        },
+        "shippingAmount": {
+          "type": "number",
+          "description": "Valor de frete ou entrega cobrado (R$)."
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Valor total final recebido na venda (R$)."
+        },
+        "totalCost": {
+          "type": "number",
+          "description": "Custo total de produção dos produtos vendidos (R$)."
+        },
+        "netProfit": {
+          "type": "number",
+          "description": "Lucro líquido real da venda (R$)."
+        },
+        "totalWeightGrams": {
+          "type": "number",
+          "description": "Peso total de filamento/resina das peças vendidas (g)."
+        },
+        "transactionId": {
+          "type": "string",
+          "description": "ID da transação vinculada no Fluxo de Caixa.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "notes": {
+          "type": "string",
+          "description": "Observações adicionais da venda.",
+          "minLength": 0,
+          "maxLength": 300
+        },
+        "status": {
+          "type": "string",
+          "description": "Status da venda.",
+          "enum": ["concluida", "pendente"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação no servidor."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de atualização no servidor."
+        }
+      },
+      "required": [
+        "ownerId",
+        "clientName",
+        "clientContact",
+        "saleDate",
+        "saleTime",
+        "paymentMethod",
+        "salesChannel",
+        "productName",
+        "itemsSummary",
+        "totalQuantity",
+        "subtotalAmount",
+        "discountAmount",
+        "shippingAmount",
+        "totalAmount",
+        "totalCost",
+        "netProfit",
+        "totalWeightGrams",
+        "transactionId",
+        "notes",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/quotes/{quoteId}": {
+      "schema": "Quote",
+      "description": "Coleção de orçamentos e pedidos de impressão 3D por usuário."
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Coleção de transações financeiras do fluxo de caixa por usuário."
+    },
+    "/spools/{spoolId}": {
+      "schema": "Spool",
+      "description": "Coleção de bobinas de filamento e resinas em estoque por usuário."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Catálogo de produtos 3D criados a partir da calculadora por usuário."
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Registro de vendas realizadas com produtos do catálogo, dia, horário e cliente."
+    }
+  }
+}

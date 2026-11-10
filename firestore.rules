@@ -1,0 +1,345 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Validation Blueprint: Quote
+    function isValidQuote(data) {
+      return data.keys().hasAll([
+        'ownerId', 'clientName', 'projectName', 'technology', 'presetId',
+        'weightGrams', 'filamentPricePerKg', 'printTimeHours', 'printTimeMinutes',
+        'printerPowerWatts', 'energyRateKwh', 'printerCost', 'printerLifespanHours',
+        'laborHourlyRate', 'laborHours', 'batchQuantity', 'profitMarginPercent',
+        'failureRiskPercent', 'unitCost', 'unitPrice', 'totalPrice', 'netProfit',
+        'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'clientName', 'projectName', 'technology', 'presetId',
+        'weightGrams', 'filamentPricePerKg', 'printTimeHours', 'printTimeMinutes',
+        'printerPowerWatts', 'energyRateKwh', 'printerCost', 'printerLifespanHours',
+        'laborHourlyRate', 'laborHours', 'batchQuantity', 'profitMarginPercent',
+        'failureRiskPercent', 'unitCost', 'unitPrice', 'totalPrice', 'netProfit',
+        'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.clientName is string && data.clientName.size() >= 1 && data.clientName.size() <= 120 &&
+      data.projectName is string && data.projectName.size() >= 1 && data.projectName.size() <= 150 &&
+      data.technology is string && data.technology.size() <= 20 && (data.technology == 'FDM' || data.technology == 'SLA_Resina') &&
+      data.presetId is string && data.presetId.size() >= 1 && data.presetId.size() <= 40 &&
+      data.weightGrams is number && data.weightGrams >= 0 && data.weightGrams <= 1000000 &&
+      data.filamentPricePerKg is number && data.filamentPricePerKg >= 0 && data.filamentPricePerKg <= 100000 &&
+      data.printTimeHours is number && data.printTimeHours >= 0 && data.printTimeHours <= 10000 &&
+      data.printTimeMinutes is number && data.printTimeMinutes >= 0 && data.printTimeMinutes <= 59 &&
+      data.printerPowerWatts is number && data.printerPowerWatts >= 0 && data.printerPowerWatts <= 50000 &&
+      data.energyRateKwh is number && data.energyRateKwh >= 0 && data.energyRateKwh <= 1000 &&
+      data.printerCost is number && data.printerCost >= 0 && data.printerCost <= 10000000 &&
+      data.printerLifespanHours is number && data.printerLifespanHours > 0 && data.printerLifespanHours <= 1000000 &&
+      data.laborHourlyRate is number && data.laborHourlyRate >= 0 && data.laborHourlyRate <= 100000 &&
+      data.laborHours is number && data.laborHours >= 0 && data.laborHours <= 10000 &&
+      data.batchQuantity is number && data.batchQuantity >= 1 && data.batchQuantity <= 1000000 &&
+      data.profitMarginPercent is number && data.profitMarginPercent >= 0 && data.profitMarginPercent <= 5000 &&
+      data.failureRiskPercent is number && data.failureRiskPercent >= 0 && data.failureRiskPercent <= 1000 &&
+      data.unitCost is number && data.unitCost >= 0 &&
+      data.unitPrice is number && data.unitPrice >= 0 &&
+      data.totalPrice is number && data.totalPrice >= 0 &&
+      data.netProfit is number &&
+      data.status is string && data.status.size() <= 20 && (data.status == 'draft' || data.status == 'approved' || data.status == 'completed') &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Transaction
+    function isValidTransaction(data) {
+      return data.keys().hasAll([
+        'ownerId', 'title', 'type', 'category', 'amount', 'dateIso', 'notes', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'title', 'type', 'category', 'amount', 'dateIso', 'notes', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+      data.type is string && data.type.size() <= 20 && (data.type == 'income' || data.type == 'expense') &&
+      data.category is string && data.category.size() <= 40 && (
+        data.category == 'venda_direta' ||
+        data.category == 'encomenda_lote' ||
+        data.category == 'prototipagem' ||
+        data.category == 'filamento_resina' ||
+        data.category == 'pecas_reposicao' ||
+        data.category == 'energia' ||
+        data.category == 'manutencao' ||
+        data.category == 'outros'
+      ) &&
+      data.amount is number && data.amount >= 0 && data.amount <= 100000000 &&
+      data.dateIso is string && data.dateIso.size() >= 10 && data.dateIso.size() <= 25 &&
+      data.notes is string && data.notes.size() >= 0 && data.notes.size() <= 300 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Spool
+    function isValidSpool(data) {
+      return data.keys().hasAll([
+        'ownerId', 'name', 'brand', 'materialType', 'colorName', 'colorHex',
+        'initialWeightGrams', 'remainingWeightGrams', 'pricePaid', 'minAlertGrams',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'name', 'brand', 'materialType', 'colorName', 'colorHex',
+        'initialWeightGrams', 'remainingWeightGrams', 'pricePaid', 'minAlertGrams',
+        'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+      data.brand is string && data.brand.size() >= 1 && data.brand.size() <= 80 &&
+      data.materialType is string && data.materialType.size() <= 30 && (
+        data.materialType == 'PLA' ||
+        data.materialType == 'PETG' ||
+        data.materialType == 'ABS' ||
+        data.materialType == 'ASA' ||
+        data.materialType == 'TPU' ||
+        data.materialType == 'Resina_Standard' ||
+        data.materialType == 'Resina_ABS_Like'
+      ) &&
+      data.colorName is string && data.colorName.size() >= 1 && data.colorName.size() <= 60 &&
+      data.colorHex is string && data.colorHex.size() >= 4 && data.colorHex.size() <= 9 && data.colorHex.matches('^#[0-9a-fA-F]{3,8}$') &&
+      data.initialWeightGrams is number && data.initialWeightGrams > 0 && data.initialWeightGrams <= 50000 &&
+      data.remainingWeightGrams is number && data.remainingWeightGrams >= 0 && data.remainingWeightGrams <= data.initialWeightGrams &&
+      data.pricePaid is number && data.pricePaid >= 0 && data.pricePaid <= 100000 &&
+      data.minAlertGrams is number && data.minAlertGrams >= 0 && data.minAlertGrams <= 50000 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Product
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+        'ownerId', 'name', 'sku', 'category', 'technology',
+        'weightGrams', 'printTimeHours', 'printTimeMinutes', 'filamentPricePerKg',
+        'unitCost', 'unitPrice', 'profitMarginPercent', 'stockQuantity',
+        'description', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'name', 'sku', 'category', 'technology',
+        'weightGrams', 'printTimeHours', 'printTimeMinutes', 'filamentPricePerKg',
+        'unitCost', 'unitPrice', 'profitMarginPercent', 'stockQuantity',
+        'description', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+      data.sku is string && data.sku.size() >= 1 && data.sku.size() <= 40 &&
+      data.category is string && data.category.size() <= 1 && data.category.size() <= 60 &&
+      data.technology is string && data.technology.size() <= 20 && (data.technology == 'FDM' || data.technology == 'SLA_Resina') &&
+      data.weightGrams is number && data.weightGrams >= 0 && data.weightGrams <= 1000000 &&
+      data.printTimeHours is number && data.printTimeHours >= 0 && data.printTimeHours <= 10000 &&
+      data.printTimeMinutes is number && data.printTimeMinutes >= 0 && data.printTimeMinutes <= 59 &&
+      data.filamentPricePerKg is number && data.filamentPricePerKg >= 0 && data.filamentPricePerKg <= 100000 &&
+      data.unitCost is number && data.unitCost >= 0 && data.unitCost <= 10000000 &&
+      data.unitPrice is number && data.unitPrice >= 0 && data.unitPrice <= 10000000 &&
+      data.profitMarginPercent is number && data.profitMarginPercent >= 0 && data.profitMarginPercent <= 5000 &&
+      data.stockQuantity is number && data.stockQuantity >= 0 && data.stockQuantity <= 1000000 &&
+      data.description is string && data.description.size() >= 0 && data.description.size() <= 300 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: Sale
+    function isValidSale(data) {
+      return data.keys().hasAll([
+        'ownerId', 'clientName', 'clientContact', 'saleDate', 'saleTime',
+        'paymentMethod', 'salesChannel', 'productName', 'itemsSummary',
+        'totalQuantity', 'subtotalAmount', 'discountAmount', 'shippingAmount',
+        'totalAmount', 'totalCost', 'netProfit', 'totalWeightGrams',
+        'transactionId', 'notes', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId', 'clientName', 'clientContact', 'saleDate', 'saleTime',
+        'paymentMethod', 'salesChannel', 'productName', 'itemsSummary',
+        'totalQuantity', 'subtotalAmount', 'discountAmount', 'shippingAmount',
+        'totalAmount', 'totalCost', 'netProfit', 'totalWeightGrams',
+        'transactionId', 'notes', 'status', 'createdAt', 'updatedAt'
+      ]) &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.ownerId == request.auth.uid &&
+      data.clientName is string && data.clientName.size() >= 1 && data.clientName.size() <= 120 &&
+      data.clientContact is string && data.clientContact.size() >= 0 && data.clientContact.size() <= 120 &&
+      data.saleDate is string && data.saleDate.size() >= 10 && data.saleDate.size() <= 25 &&
+      data.saleTime is string && data.saleTime.size() >= 4 && data.saleTime.size() <= 10 &&
+      data.paymentMethod is string && data.paymentMethod.size() <= 30 && (
+        data.paymentMethod == 'PIX' ||
+        data.paymentMethod == 'Cartao_Credito' ||
+        data.paymentMethod == 'Cartao_Debito' ||
+        data.paymentMethod == 'Dinheiro' ||
+        data.paymentMethod == 'Boleto' ||
+        data.paymentMethod == 'Transferencia'
+      ) &&
+      data.salesChannel is string && data.salesChannel.size() <= 30 && (
+        data.salesChannel == 'WhatsApp' ||
+        data.salesChannel == 'Instagram' ||
+        data.salesChannel == 'Mercado_Livre' ||
+        data.salesChannel == 'Shopee' ||
+        data.salesChannel == 'Loja_Propria' ||
+        data.salesChannel == 'Balcao'
+      ) &&
+      data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 200 &&
+      data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 400 &&
+      data.totalQuantity is number && data.totalQuantity >= 1 && data.totalQuantity <= 1000000 &&
+      data.subtotalAmount is number && data.subtotalAmount >= 0 && data.subtotalAmount <= 100000000 &&
+      data.discountAmount is number && data.discountAmount >= 0 && data.discountAmount <= 100000000 &&
+      data.shippingAmount is number && data.shippingAmount >= 0 && data.shippingAmount <= 100000000 &&
+      data.totalAmount is number && data.totalAmount >= 0 && data.totalAmount <= 100000000 &&
+      data.totalCost is number && data.totalCost >= 0 && data.totalCost <= 100000000 &&
+      data.netProfit is number &&
+      data.totalWeightGrams is number && data.totalWeightGrams >= 0 && data.totalWeightGrams <= 10000000 &&
+      data.transactionId is string && data.transactionId.size() >= 1 && data.transactionId.size() <= 128 && data.transactionId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.notes is string && data.notes.size() >= 0 && data.notes.size() <= 300 &&
+      data.status is string && data.status.size() <= 20 && (data.status == 'concluida' || data.status == 'pendente') &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Collection: /quotes/{quoteId}
+    match /quotes/{quoteId} {
+      allow get: if isSignedIn() && isValidId(quoteId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(quoteId) && isValidQuote(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(quoteId) && isValidQuote(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        existing().status != 'completed' && (
+          // Action 1: Status Transition (e.g. draft -> approved or completed)
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
+          // Action 2: Full Quote Calculation & Details Update
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'clientName', 'projectName', 'technology', 'presetId',
+            'weightGrams', 'filamentPricePerKg', 'printTimeHours', 'printTimeMinutes',
+            'printerPowerWatts', 'energyRateKwh', 'printerCost', 'printerLifespanHours',
+            'laborHourlyRate', 'laborHours', 'batchQuantity', 'profitMarginPercent',
+            'failureRiskPercent', 'unitCost', 'unitPrice', 'totalPrice', 'netProfit',
+            'status', 'updatedAt'
+          ])
+        );
+      allow delete: if isVerifiedUser() && isValidId(quoteId) && existing().ownerId == request.auth.uid;
+    }
+
+    // Collection: /transactions/{transactionId}
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn() && isValidId(transactionId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(transactionId) && isValidTransaction(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(transactionId) && isValidTransaction(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'type', 'category', 'amount', 'dateIso', 'notes', 'updatedAt'
+        ]);
+      allow delete: if isVerifiedUser() && isValidId(transactionId) && existing().ownerId == request.auth.uid;
+    }
+
+    // Collection: /spools/{spoolId}
+    match /spools/{spoolId} {
+      allow get: if isSignedIn() && isValidId(spoolId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(spoolId) && isValidSpool(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(spoolId) && isValidSpool(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action 1: Consume or Restock Weight
+          incoming().diff(existing()).affectedKeys().hasOnly(['remainingWeightGrams', 'updatedAt']) ||
+          // Action 2: Edit Spool Metadata
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'brand', 'materialType', 'colorName', 'colorHex',
+            'initialWeightGrams', 'remainingWeightGrams', 'pricePaid', 'minAlertGrams',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isVerifiedUser() && isValidId(spoolId) && existing().ownerId == request.auth.uid;
+    }
+
+    // Collection: /products/{productId}
+    match /products/{productId} {
+      allow get: if isSignedIn() && isValidId(productId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(productId) && isValidProduct(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(productId) && isValidProduct(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          // Action 1: Stock Adjustment
+          incoming().diff(existing()).affectedKeys().hasOnly(['stockQuantity', 'updatedAt']) ||
+          // Action 2: Edit Product Details & Pricing
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'sku', 'category', 'technology', 'weightGrams',
+            'printTimeHours', 'printTimeMinutes', 'filamentPricePerKg',
+            'unitCost', 'unitPrice', 'profitMarginPercent', 'stockQuantity',
+            'description', 'updatedAt'
+          ])
+        );
+      allow delete: if isVerifiedUser() && isValidId(productId) && existing().ownerId == request.auth.uid;
+    }
+
+    // Collection: /sales/{saleId}
+    match /sales/{saleId} {
+      allow get: if isSignedIn() && isValidId(saleId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() && isValidId(saleId) && isValidSale(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() && isValidId(saleId) && isValidSale(incoming()) &&
+        existing().ownerId == request.auth.uid &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        existing().status != 'concluida' && (
+          // Action 1: Finalize Pending Sale
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) ||
+          // Action 2: Edit Pending Sale Notes
+          incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'status', 'updatedAt'])
+        );
+      allow delete: if isVerifiedUser() && isValidId(saleId) && existing().ownerId == request.auth.uid;
+    }
+  }
+}

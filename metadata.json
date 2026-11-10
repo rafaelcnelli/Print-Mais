@@ -1,0 +1,6 @@
+{
+  "name": "3D Print Manager & Precificador",
+  "description": "Sistema profissional de precificação de impressão 3D (FDM e Resina), controle de estoque de filamentos, fluxo de caixa e relatórios financeiros.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

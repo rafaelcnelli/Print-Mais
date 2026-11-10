@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-family: var(--font-mono);
+  }
+}
+
+/* Diagonal hatch patterns inspired by Fingoals reference image */
+.bg-hatch-blue {
+  background-color: #1D63FF;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.14) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.bg-hatch-navy {
+  background-color: #102A6B;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.10),
+    rgba(255, 255, 255, 0.10) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.bg-hatch-obsidian {
+  background-color: #181B24;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.06) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.bg-hatch-sky {
+  background-color: #7DB2FF;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.25),
+    rgba(255, 255, 255, 0.25) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+/* Custom Range Slider styling */
+input[type="range"] {
+  accent-color: #1D63FF;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-quote-sheet,
+  #printable-quote-sheet * {
+    visibility: visible;
+  }
+  #printable-quote-sheet {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    padding: 24px !important;
+  }
+}
