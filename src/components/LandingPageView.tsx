@@ -30,7 +30,6 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
-import { PWAInstallButton } from './PWAInstallButton';
 
 interface LandingPageViewProps {
   isDark: boolean;
@@ -175,8 +174,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             >
               {isDark ? <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Moon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
             </button>
-
-            <PWAInstallButton variant="header" />
 
             <button
               type="button"

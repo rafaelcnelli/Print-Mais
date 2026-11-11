@@ -66,10 +66,9 @@ import { InventoryView } from './components/InventoryView';
 import { ReportsDashboardView } from './components/ReportsDashboardView';
 import { ConfirmLogoutModal } from './components/ConfirmLogoutModal';
 import { MobileDrawerMenu } from './components/MobileDrawerMenu';
-import { PWAInstallButton } from './components/PWAInstallButton';
-import { OfflineIndicator } from './components/OfflineIndicator';
 import {
   BarChart3,
+  Box,
   Calculator,
   Disc,
   FolderKanban,
@@ -1249,10 +1248,35 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-4">
-              <PWAInstallButton variant="sidebar" />
+          {/* Bottom Callout Card (Black in Light Mode, Blue in Dark Mode) */}
+          <div className="mt-6 rounded-3xl bg-[#0D0F14] dark:bg-[#1D63FF] p-5 text-white shadow-lg">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1D63FF]">
+              <Box className="h-4 w-4" />
             </div>
+            <div className="mt-3 text-base font-extrabold leading-snug">
+              Precificação 3D Profissional
+            </div>
+            <p className="mt-1 text-xs text-slate-300 dark:text-blue-100">
+              Cálculo exato de depreciação, kWh, falha e ROI da máquina.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const lotePreset = CALCULATOR_PRESETS.find(
+                  (p) => p.id === 'lote_producao'
+                );
+                if (lotePreset) {
+                  setCalcParams((prev) => ({ ...prev, ...lotePreset.params }));
+                }
+                setActiveScreen('calculator');
+              }}
+              className="mt-4 inline-flex w-full items-center justify-between rounded-full bg-[#1D63FF] dark:bg-[#0D0F14] px-4 py-2.5 text-xs font-bold text-white hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
+            >
+              <span>Simular Lote 50 un</span>
+              <span>↗</span>
+            </button>
           </div>
         </aside>
 
@@ -1298,8 +1322,6 @@ export default function App() {
 
             {/* Right Controls: Theme Toggle, Mobile Menu Drawer & User Account / Logout */}
             <div className="flex items-center gap-2">
-              <PWAInstallButton variant="header" />
-
               <button
                 type="button"
                 onClick={() => setIsDark(!isDark)}
@@ -1502,6 +1524,15 @@ export default function App() {
         isDark={isDark}
         onToggleTheme={() => setIsDark(!isDark)}
         onRequestLogout={() => setIsLogoutModalOpen(true)}
+        onSimulateLot={() => {
+          const lotePreset = CALCULATOR_PRESETS.find(
+            (p) => p.id === 'lote_producao'
+          );
+          if (lotePreset) {
+            setCalcParams((prev) => ({ ...prev, ...lotePreset.params }));
+          }
+          setActiveScreen('calculator');
+        }}
       />
 
       {/* CONFIRM LOGOUT MODAL */}
@@ -1514,9 +1545,6 @@ export default function App() {
         }}
         onCancel={() => setIsLogoutModalOpen(false)}
       />
-
-      {/* PWA OFFLINE CONNECTIVITY INDICATOR */}
-      <OfflineIndicator />
     </div>
   );
 }
