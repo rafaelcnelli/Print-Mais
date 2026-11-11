@@ -3,6 +3,7 @@ import {
   CalculatorParams,
   CostBreakdownResult,
   PaymentMethod,
+  ProductCategoryRecord,
   ProductRecord,
   SaleItemRecord,
   SaleRecord,
@@ -31,6 +32,8 @@ interface ProductSalesWorkspaceProps {
   currentCalcParams: CalculatorParams;
   currentBreakdown: CostBreakdownResult;
   products: ProductRecord[];
+  categories?: ProductCategoryRecord[];
+  selectedCategory?: string;
   sales: SaleRecord[];
   onCreateProduct: (
     productInput: Omit<ProductRecord, 'id' | 'ownerId' | 'createdAtIso'>
@@ -66,7 +69,7 @@ export const SALES_CHANNEL_LABELS: Record<SalesChannel, string> = {
   Balcao: 'Balcão / Presencial',
 };
 
-const PRODUCT_CATEGORIES = [
+const DEFAULT_PRODUCT_CATEGORIES = [
   'Peça Técnica',
   'Miniatura / Action Figure',
   'Chaveiro / Brinde',
@@ -90,6 +93,8 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
   currentCalcParams,
   currentBreakdown,
   products,
+  categories = [],
+  selectedCategory,
   sales,
   onCreateProduct,
   onDeleteProduct,
@@ -102,6 +107,13 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
   isRegisterSaleModalOpen,
   setIsRegisterSaleModalOpen,
 }) => {
+  const availableCategories = useMemo(() => {
+    if (categories && categories.length > 0) {
+      return categories.map((c) => c.name);
+    }
+    return DEFAULT_PRODUCT_CATEGORIES;
+  }, [categories]);
+
   const [activeTab, setActiveTab] = useState<'catalog' | 'new_sale' | 'sales_history'>('catalog');
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<ProductRecord | null>(
@@ -112,7 +124,7 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
   // Create Product Form State (synced from Calculator when opened)
   const [prodName, setProdName] = useState(currentCalcParams.projectName);
   const [prodSku, setProdSku] = useState(`PRD-0${products.length + 1}`);
-  const [prodCategory, setProdCategory] = useState('Peça Técnica');
+  const [prodCategory, setProdCategory] = useState(selectedCategory || availableCategories[0] || 'Peça Técnica');
   const [prodCustomPrice, setProdCustomPrice] = useState<string>(
     currentBreakdown.unitPrice.toFixed(2)
   );
@@ -126,12 +138,20 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
     if (isCreateProductModalOpen) {
       setProdName(currentCalcParams.projectName || 'Novo Produto 3D');
       setProdSku(`PRD-${String(products.length + 1).padStart(3, '0')}`);
+      setProdCategory(selectedCategory || availableCategories[0] || 'Peça Técnica');
       setProdCustomPrice(currentBreakdown.unitPrice.toFixed(2));
       setProdDescription(
         `Impressão ${currentCalcParams.technology} · ${currentCalcParams.weightGrams}g · ${currentCalcParams.printTimeHours}h${currentCalcParams.printTimeMinutes}m`
       );
     }
-  }, [isCreateProductModalOpen, currentCalcParams, currentBreakdown, products.length]);
+  }, [
+    isCreateProductModalOpen,
+    currentCalcParams,
+    currentBreakdown,
+    products.length,
+    selectedCategory,
+    availableCategories,
+  ]);
 
   // Register Sale Form State
   const [saleClientName, setSaleClientName] = useState<string>(
@@ -1288,7 +1308,7 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
                     onChange={(e) => setProdCategory(e.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
                   >
-                    {PRODUCT_CATEGORIES.map((cat) => (
+                    {availableCategories.map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
                       </option>

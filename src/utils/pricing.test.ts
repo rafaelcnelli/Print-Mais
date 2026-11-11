@@ -260,4 +260,14 @@ test('FAMOUS_FILAMENT_BRANDS includes famous 3D printing brands and Genérico', 
   assert.ok(FAMOUS_FILAMENT_BRANDS.includes('Elegoo'));
 });
 
+test('ConfirmLogoutModal and MobileDrawerMenu are exported components', async () => {
+  const { ConfirmLogoutModal } = await import('../components/ConfirmLogoutModal');
+  const { MobileDrawerMenu } = await import('../components/MobileDrawerMenu');
+
+  assert.equal(typeof ConfirmLogoutModal, 'function');
+  assert.equal(typeof MobileDrawerMenu, 'function');
+});
+
+
+
 

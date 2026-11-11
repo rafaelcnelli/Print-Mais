@@ -106,10 +106,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   const netProfitRatio = breakdown.profitSharePercent;
 
   return (
-    <div className="min-h-screen bg-[#EEF0F4] dark:bg-[#0B0D13] text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen bg-[#EEF0F4] dark:bg-[#0B0D13] text-slate-900 dark:text-slate-100 transition-colors overflow-x-hidden">
       {/* TOP BAR CONTRACT: Brand — Nav Links — Top Actions (Planos & Entrar) */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-8 px-4 py-3.5 sm:px-6 lg:px-10">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-2 sm:gap-6 lg:gap-8 px-3 py-2 sm:px-6 lg:px-10">
           {/* Zone 1: Brand Wordmark */}
           <a
             href="#topo"
@@ -117,9 +117,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               e.preventDefault();
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
+            className="flex items-center gap-2 text-base sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
           >
-            <span className="grid h-9 w-9 grid-cols-2 gap-0.5 rounded-xl bg-[#1D63FF] p-2 text-white shadow-md shadow-blue-600/25">
+            <span className="grid h-8 w-8 sm:h-9 sm:w-9 grid-cols-2 gap-0.5 rounded-xl bg-[#1D63FF] p-1.5 sm:p-2 text-white shadow-md shadow-blue-600/25">
               <span className="rounded-full bg-white" />
               <span className="rounded-sm bg-white/70" />
               <span className="rounded-sm bg-white/70" />
@@ -165,21 +165,21 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           </nav>
 
           {/* Zone 3: Top Buttons — Planos & Entrar */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <button
               type="button"
               onClick={onToggleTheme}
               aria-label={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
-              className="inline-flex md:hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#171A24] text-slate-700 dark:text-slate-200"
+              className="inline-flex md:hidden h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#171A24] text-slate-700 dark:text-slate-200"
             >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Moon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
             </button>
 
             <button
               type="button"
               data-testid="header-btn-planos"
               onClick={() => scrollToSection('planos')}
-              className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-[#171A24] px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-[#171A24] px-2.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-100 hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
               Planos
             </button>
@@ -188,7 +188,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               type="button"
               data-testid="header-btn-entrar"
               onClick={() => onOpenAuth({ initialMode: 'login' })}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#0D0F14] dark:bg-[#1D63FF] px-4 py-2.5 text-xs font-extrabold text-white hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0D0F14] dark:bg-[#1D63FF] px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-extrabold text-white hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 shadow-sm cursor-pointer"
             >
               <LogIn className="h-3.5 w-3.5" />
               <span>Entrar</span>

@@ -64,6 +64,8 @@ import { CloseOrderDetails, OrdersView } from './components/OrdersView';
 import { CashFlowView } from './components/CashFlowView';
 import { InventoryView } from './components/InventoryView';
 import { ReportsDashboardView } from './components/ReportsDashboardView';
+import { ConfirmLogoutModal } from './components/ConfirmLogoutModal';
+import { MobileDrawerMenu } from './components/MobileDrawerMenu';
 import {
   BarChart3,
   Box,
@@ -71,6 +73,7 @@ import {
   Disc,
   FolderKanban,
   LogOut,
+  Menu,
   Moon,
   Sun,
   Tags,
@@ -108,6 +111,8 @@ export default function App() {
   const [publicScreen, setPublicScreen] = useState<'landing' | 'auth'>('landing');
   const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
   const [authSelectedPlan, setAuthSelectedPlan] = useState<SubscriptionPlanId>('pro_annual');
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
 
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
@@ -1315,8 +1320,8 @@ export default function App() {
               ))}
             </div>
 
-            {/* Right Controls: Theme Toggle & User Account / Logout */}
-            <div className="flex items-center gap-2.5">
+            {/* Right Controls: Theme Toggle, Mobile Menu Drawer & User Account / Logout */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setIsDark(!isDark)}
@@ -1332,6 +1337,17 @@ export default function App() {
                 )}
               </button>
 
+              {/* Mobile Drawer Trigger Button in Header */}
+              <button
+                type="button"
+                onClick={() => setIsMobileDrawerOpen(true)}
+                aria-label="Abrir menu lateral mobile"
+                title="Abrir menu lateral"
+                className="inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#181C26] text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors"
+              >
+                <Menu className="h-4 w-4" />
+              </button>
+
               <div className="flex items-center gap-2.5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#181C26] pl-3 pr-1.5 py-1">
                 <div className="hidden sm:block text-right">
                   <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
@@ -1343,7 +1359,7 @@ export default function App() {
                 </div>
                 <button
                   type="button"
-                  onClick={handleLogout}
+                  onClick={() => setIsLogoutModalOpen(true)}
                   aria-label="Sair da conta"
                   title="Sair da conta"
                   className="inline-flex h-8 px-2.5 items-center justify-center gap-1 rounded-full bg-slate-200 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-rose-500 hover:text-white transition-colors"
@@ -1363,6 +1379,9 @@ export default function App() {
                 onChangeParams={setCalcParams}
                 spools={spools}
                 products={products}
+                categories={categories}
+                onCreateCategory={handleCreateCategory}
+                onDeleteCategory={handleDeleteCategory}
                 sales={sales}
                 onCreateProduct={handleCreateProduct}
                 onDeleteProduct={handleDeleteProduct}
@@ -1437,12 +1456,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* MOBILE FIXED BOTTOM NAVIGATION BAR WITH ICONS (lg:hidden) */}
+      {/* MOBILE FIXED BOTTOM NAVIGATION BAR (lg:hidden) — 5 Well-Spaced Touch Targets */}
       <nav
         aria-label="Menu Inferior Mobile"
-        className="fixed bottom-0 left-0 right-0 z-40 grid h-16 grid-cols-6 items-center border-t border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 px-1 backdrop-blur-md lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-40 grid h-16 grid-cols-5 items-center border-t border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 px-1 backdrop-blur-md lg:hidden"
       >
-        {navItems.map((item) => {
+        {navItems.slice(0, 4).map((item) => {
           const Icon = item.icon;
           const isActive = activeScreen === item.id;
           return (
@@ -1463,7 +1482,69 @@ export default function App() {
             </button>
           );
         })}
+
+        {/* 5th Button: Opens Mobile Side Drawer Menu */}
+        <button
+          type="button"
+          onClick={() => setIsMobileDrawerOpen(true)}
+          data-testid="bottom-nav-menu-btn"
+          aria-label="Abrir menu lateral completo"
+          className={`flex min-h-[48px] flex-col items-center justify-center rounded-xl transition-colors relative ${
+            isMobileDrawerOpen || activeScreen === 'inventory' || activeScreen === 'reports'
+              ? 'text-[#1D63FF] dark:text-blue-400 font-extrabold'
+              : 'text-slate-500 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <div className="relative">
+            <Menu className="h-5 w-5" />
+            {(activeScreen === 'inventory' || activeScreen === 'reports') && (
+              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#1D63FF]" />
+            )}
+          </div>
+          <span className="mt-1 text-[10px] tracking-tight whitespace-nowrap">
+            Menu
+          </span>
+        </button>
       </nav>
+
+      {/* MOBILE DRAWER SIDE MENU */}
+      <MobileDrawerMenu
+        isOpen={isMobileDrawerOpen}
+        onClose={() => setIsMobileDrawerOpen(false)}
+        activeScreen={activeScreen}
+        onSelectScreen={(screen) => {
+          setActiveScreen(screen);
+          setIsMobileDrawerOpen(false);
+        }}
+        account={account}
+        totalCashBalance={totalCashBalance}
+        productsCount={products.length}
+        spoolsCount={spools.length}
+        quotesCount={quotes.length}
+        isDark={isDark}
+        onToggleTheme={() => setIsDark(!isDark)}
+        onRequestLogout={() => setIsLogoutModalOpen(true)}
+        onSimulateLot={() => {
+          const lotePreset = CALCULATOR_PRESETS.find(
+            (p) => p.id === 'lote_producao'
+          );
+          if (lotePreset) {
+            setCalcParams((prev) => ({ ...prev, ...lotePreset.params }));
+          }
+          setActiveScreen('calculator');
+        }}
+      />
+
+      {/* CONFIRM LOGOUT MODAL */}
+      <ConfirmLogoutModal
+        isOpen={isLogoutModalOpen}
+        account={account}
+        onConfirm={async () => {
+          setIsLogoutModalOpen(false);
+          await handleLogout();
+        }}
+        onCancel={() => setIsLogoutModalOpen(false)}
+      />
     </div>
   );
 }

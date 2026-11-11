@@ -1,26 +1,31 @@
 import React, { useMemo, useState } from 'react';
 import {
   CalculatorParams,
+  ProductCategoryRecord,
   ProductRecord,
   SaleRecord,
   SpoolRecord,
 } from '../types';
 import {
-  CALCULATOR_PRESETS,
   calculate3DPrintPricing,
   formatCurrencyBRL,
 } from '../utils/pricing';
 import { ProductSalesWorkspace } from './ProductSalesWorkspace';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import {
-  ArrowUpRight,
   CheckCircle2,
+  FolderPlus,
   Layers,
   Package,
   PackagePlus,
   Percent,
+  Plus,
   Scale,
   ShoppingCart,
+  Tags,
+  Trash2,
   Wrench,
+  X,
   Zap,
 } from 'lucide-react';
 
@@ -29,6 +34,11 @@ interface CalculatorViewProps {
   onChangeParams: (next: CalculatorParams) => void;
   spools: SpoolRecord[];
   products: ProductRecord[];
+  categories: ProductCategoryRecord[];
+  onCreateCategory: (
+    categoryInput: Omit<ProductCategoryRecord, 'id' | 'ownerId' | 'createdAtIso'>
+  ) => ProductCategoryRecord | Promise<ProductCategoryRecord>;
+  onDeleteCategory: (categoryId: string) => void;
   sales: SaleRecord[];
   onCreateProduct: (
     productInput: Omit<ProductRecord, 'id' | 'ownerId' | 'createdAtIso'>
@@ -41,11 +51,24 @@ interface CalculatorViewProps {
   onNavigateToCashflow: () => void;
 }
 
+const CATEGORY_COLORS = [
+  { label: 'Azul Royal', hex: '#1D63FF' },
+  { label: 'Verde Esmeralda', hex: '#10B981' },
+  { label: 'Violeta', hex: '#8B5CF6' },
+  { label: 'Âmbar', hex: '#F59E0B' },
+  { label: 'Ciano', hex: '#06B6D4' },
+  { label: 'Rosa', hex: '#EC4899' },
+  { label: 'Laranja', hex: '#F97316' },
+];
+
 export const CalculatorView: React.FC<CalculatorViewProps> = ({
   params,
   onChangeParams,
   spools,
   products,
+  categories,
+  onCreateCategory,
+  onDeleteCategory,
   sales,
   onCreateProduct,
   onDeleteProduct,
@@ -57,11 +80,48 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
   const [isRegisterSaleModalOpen, setIsRegisterSaleModalOpen] = useState(false);
   const [feedbackBanner, setFeedbackBanner] = useState<string | null>(null);
 
+  // Category registration state
+  const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDesc, setNewCatDesc] = useState('');
+  const [newCatColor, setNewCatColor] = useState('#1D63FF');
+  const [catError, setCatError] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<ProductCategoryRecord | null>(null);
+  const [selectedProductCategory, setSelectedProductCategory] = useState<string>(
+    categories[0]?.name || 'Peça Técnica'
+  );
+
   const breakdown = useMemo(() => calculate3DPrintPricing(params), [params]);
 
   const showToast = (msg: string) => {
     setFeedbackBanner(msg);
     setTimeout(() => setFeedbackBanner(null), 3200);
+  };
+
+  const handleSaveCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCatError(null);
+    if (!newCatName.trim()) {
+      setCatError('O nome da categoria é obrigatório.');
+      return;
+    }
+    const exists = categories.some(
+      (c) => c.name.toLowerCase() === newCatName.trim().toLowerCase()
+    );
+    if (exists) {
+      setCatError('Já existe uma categoria cadastrada com este nome.');
+      return;
+    }
+    onCreateCategory({
+      name: newCatName.trim(),
+      description: newCatDesc.trim() || '',
+      colorHex: newCatColor,
+    });
+    showToast(`Categoria "${newCatName.trim()}" cadastrada com sucesso!`);
+    setNewCatName('');
+    setNewCatDesc('');
+    setNewCatColor('#1D63FF');
+    setIsCategoryFormOpen(false);
   };
 
   const handleLoadProductIntoCalculator = (product: ProductRecord) => {
@@ -82,6 +142,9 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
         profitMarginPercent: product.profitMarginPercent,
       });
     }
+    if (product.category) {
+      setSelectedProductCategory(product.category);
+    }
     showToast(`Parâmetros do produto "${product.name}" carregados na calculadora!`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -99,17 +162,6 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  };
-
-  const handleSelectPreset = (presetId: string) => {
-    const preset = CALCULATOR_PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
-    onChangeParams({
-      ...params,
-      ...preset.params,
-      presetId: preset.id,
-    });
-    showToast(`Preset "${preset.name}" aplicado aos parâmetros.`);
   };
 
   const handleNumericChange = (field: keyof CalculatorParams, rawValue: string) => {
@@ -139,106 +191,59 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Fast Presets Strip */}
-      <section aria-label="Presets Rápidos de Precificação">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-              Presets Rápidos de Produção
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Carregue configurações pré-calibradas para FDM ou Resina SLA em um clique
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {feedbackBanner && (
-              <div
-                role="status"
-                className="inline-flex items-center gap-2 rounded-full bg-[#1D63FF]/15 px-3.5 py-1.5 text-xs font-semibold text-[#1D63FF] dark:text-blue-400"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                {feedbackBanner}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => setIsCreateProductModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#1D63FF] px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-blue-600 transition-colors whitespace-nowrap shrink-0 shadow-sm"
-            >
-              <PackagePlus className="h-3.5 w-3.5" />
-              Criar Produto ({products.length})
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenSaleWorkspace}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-emerald-500 transition-colors whitespace-nowrap shrink-0 shadow-sm"
-            >
-              <ShoppingCart className="h-3.5 w-3.5" />
-              Registrar Venda ({sales.length})
-            </button>
-            <button
-              type="button"
-              onClick={handleScrollToCatalog}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0"
-            >
-              <Package className="h-3.5 w-3.5 text-[#1D63FF]" />
-              Catálogo de Produtos ({products.length})
-            </button>
-          </div>
+      {/* Top Header Action Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+            Calculadora de Custos & Precificação 3D
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Configure material, tempo, custos e categoria para apurar o preço sugerido exato
+          </p>
         </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {CALCULATOR_PRESETS.map((preset) => {
-            const isSelected = params.presetId === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => handleSelectPreset(preset.id)}
-                className={`group flex flex-col justify-between rounded-3xl border p-4 text-left transition-all ${
-                  isSelected
-                    ? 'border-[#0D0F14] dark:border-[#1D63FF] bg-[#0D0F14] dark:bg-[#1D63FF] text-white shadow-lg shadow-blue-600/20'
-                    : 'border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] text-slate-900 dark:text-slate-100 hover:border-blue-500/50'
-                }`}
-              >
-                <div className="flex w-full items-center justify-between gap-2">
-                  <span className="text-sm font-bold tracking-tight">{preset.name}</span>
-                  <span
-                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${
-                      isSelected
-                        ? 'bg-white/20 text-white'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                    }`}
-                  >
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </span>
-                </div>
-                <p
-                  className={`mt-2 text-xs leading-relaxed ${
-                    isSelected ? 'text-slate-200 dark:text-blue-100' : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {preset.description}
-                </p>
-                <div
-                  className={`mt-3 text-[11px] font-medium ${
-                    isSelected ? 'text-blue-300 dark:text-blue-100' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  {preset.badge}
-                </div>
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-2">
+          {feedbackBanner && (
+            <div
+              role="status"
+              className="inline-flex items-center gap-2 rounded-full bg-[#1D63FF]/15 px-3.5 py-1.5 text-xs font-semibold text-[#1D63FF] dark:text-blue-400"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {feedbackBanner}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsCreateProductModalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#1D63FF] px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-blue-600 transition-colors whitespace-nowrap shrink-0 shadow-sm"
+          >
+            <PackagePlus className="h-3.5 w-3.5" />
+            Criar Produto ({products.length})
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenSaleWorkspace}
+            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-emerald-500 transition-colors whitespace-nowrap shrink-0 shadow-sm"
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            Registrar Venda ({sales.length})
+          </button>
+          <button
+            type="button"
+            onClick={handleScrollToCatalog}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0"
+          >
+            <Package className="h-3.5 w-3.5 text-[#1D63FF]" />
+            Catálogo ({products.length})
+          </button>
         </div>
-      </section>
+      </div>
 
       {/* Main 2-Column Split Layout */}
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
         {/* LEFT COLUMN: Parameter Form (7 cols on XL) */}
         <div className="space-y-5 xl:col-span-7">
           {/* Card 0: Identificação do Produto & Tecnologia */}
-          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-6">
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-4 sm:p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Identificação do Produto & Tecnologia
@@ -310,10 +315,10 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
           </div>
 
           {/* Card 1: Material e Tempo */}
-          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-4 sm:p-6">
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-[#1D63FF]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-[#1D63FF] shrink-0">
                   <Scale className="h-4 w-4" />
                 </span>
                 <div>
@@ -327,12 +332,12 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
               </div>
 
               {spools.length > 0 && (
-                <div>
+                <div className="w-full sm:w-auto">
                   <select
                     aria-label="Vincular preço de bobina do estoque"
                     onChange={(e) => handleSpoolSelect(e.target.value)}
                     defaultValue=""
-                    className="rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#0D0F14] px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 focus:border-[#1D63FF] focus:outline-none"
+                    className="w-full sm:w-auto max-w-full truncate rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#0D0F14] px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 focus:border-[#1D63FF] focus:outline-none"
                   >
                     <option value="" disabled>
                       Usar bobina do estoque...
@@ -461,7 +466,7 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
           {/* Card 2: Operação, Desgaste e Mão de Obra */}
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {/* Operação e Desgaste */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-6">
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-4 sm:p-6">
               <div className="mb-4 flex items-center gap-2.5">
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
                   <Zap className="h-4 w-4" />
@@ -538,7 +543,7 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
             </div>
 
             {/* Mão de Obra e Setup */}
-            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-6">
+            <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-4 sm:p-6">
               <div className="mb-4 flex items-center gap-2.5">
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
                   <Wrench className="h-4 w-4" />
@@ -616,7 +621,7 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
           </div>
 
           {/* Card 3: Sliders Dinâmicos de Margens e Riscos */}
-          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-6">
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-4 sm:p-6">
             <div className="mb-4 flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-[#1D63FF]">
                 <Percent className="h-4 w-4" />
@@ -697,6 +702,230 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Card 5: Escolher Categoria do Produto */}
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-4 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-[#1D63FF] shrink-0">
+                  <Tags className="h-4 w-4" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    5. Escolher Categoria do Produto
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Selecione ou cadastre a categoria para classificar este produto no catálogo e nos orçamentos
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCategoryFormOpen(!isCategoryFormOpen)}
+                data-testid="btn-open-category-form-item5"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#0D0F14] px-3.5 py-1.5 text-xs font-bold text-[#1D63FF] hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+                {isCategoryFormOpen ? 'Fechar Cadastro' : '+ Cadastrar Nova Categoria'}
+              </button>
+            </div>
+
+            {/* Selected Category Highlight Banner */}
+            <div className="mb-4 flex items-center justify-between rounded-2xl bg-slate-50 dark:bg-[#0D0F14] border border-slate-200/70 dark:border-slate-800 px-4 py-2.5">
+              <span className="text-xs text-slate-600 dark:text-slate-300">
+                Categoria selecionada para esta peça:
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-[#1D63FF]/15 px-3 py-1 text-xs font-extrabold text-[#1D63FF] dark:text-blue-400">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{
+                    backgroundColor:
+                      categories.find((c) => c.name === selectedProductCategory)
+                        ?.colorHex || '#1D63FF',
+                  }}
+                />
+                {selectedProductCategory || 'Nenhuma selecionada'}
+              </span>
+            </div>
+
+            {/* Inline Category Registration Form if expanded */}
+            {isCategoryFormOpen && (
+              <form
+                onSubmit={handleSaveCategory}
+                className="mb-4 rounded-2xl border-2 border-dashed border-[#1D63FF]/50 bg-blue-50/50 dark:bg-blue-950/20 p-4 transition-all shadow-sm"
+              >
+                <div className="flex items-center justify-between gap-3 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <FolderPlus className="h-3.5 w-3.5 text-[#1D63FF]" />
+                    <span className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Cadastrar Nova Categoria
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryFormOpen(false)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {catError && (
+                  <div className="mb-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 p-2 text-xs text-rose-500 font-semibold">
+                    {catError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  <div className="sm:col-span-5">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Nome da Categoria *
+                    </label>
+                    <input
+                      type="text"
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      placeholder="Ex: Peças Automotivas, Cosplay..."
+                      className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D0F14] px-3 py-1.5 text-xs font-medium text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Cor da Etiqueta
+                    </label>
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      {CATEGORY_COLORS.map((c) => (
+                        <button
+                          key={c.hex}
+                          type="button"
+                          onClick={() => setNewCatColor(c.hex)}
+                          title={c.label}
+                          className={`h-6 w-6 rounded-full transition-transform cursor-pointer ${
+                            newCatColor === c.hex
+                              ? 'ring-2 ring-offset-2 ring-[#1D63FF] scale-110'
+                              : 'opacity-70 hover:opacity-100'
+                          }`}
+                          style={{ backgroundColor: c.hex }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-3 flex items-end justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsCategoryFormOpen(false)}
+                      className="rounded-full border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-full bg-[#1D63FF] px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-blue-600 transition-colors shadow-sm cursor-pointer"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+
+                  <div className="sm:col-span-12">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Descrição da Categoria (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={newCatDesc}
+                      onChange={(e) => setNewCatDesc(e.target.value)}
+                      placeholder="Ex: Peças técnicas sob medida produzidas em PETG ou ABS..."
+                      className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D0F14] px-3 py-1.5 text-xs font-medium text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {/* Category Selection Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {categories.map((cat) => {
+                const isSelected = selectedProductCategory === cat.name;
+                const prodCount = products.filter((p) => p.category === cat.name).length;
+                return (
+                  <div
+                    key={cat.id}
+                    onClick={() => {
+                      setSelectedProductCategory(cat.name);
+                      showToast(`Categoria "${cat.name}" selecionada para este produto.`);
+                    }}
+                    className={`group flex flex-col justify-between rounded-2xl border p-3 text-left transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-[#1D63FF] bg-blue-50/50 dark:bg-blue-950/30 ring-2 ring-[#1D63FF] shadow-sm'
+                        : 'border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] hover:border-slate-300 dark:hover:border-slate-700'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full shrink-0 shadow-xs"
+                            style={{ backgroundColor: cat.colorHex || '#1D63FF' }}
+                          />
+                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {cat.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCategoryToDelete(cat);
+                            }}
+                            title="Excluir categoria"
+                            className="opacity-40 group-hover:opacity-100 hover:text-rose-500 text-slate-400 transition-colors p-0.5"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                          {isSelected && (
+                            <span className="h-2 w-2 rounded-full bg-[#1D63FF] shrink-0" />
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                        {cat.description || 'Categoria de peças 3D'}
+                      </p>
+                    </div>
+
+                    <div className="mt-2.5 flex items-center justify-between pt-1.5 border-t border-slate-200/50 dark:border-slate-800/60 text-[10px]">
+                      <span className="text-slate-400">
+                        {prodCount} {prodCount === 1 ? 'peça' : 'peças'}
+                      </span>
+                      {isSelected ? (
+                        <span className="font-extrabold text-[#1D63FF]">✓ Selecionada</span>
+                      ) : (
+                        <span className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300">
+                          Clique para escolher
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Add New Category Quick Button */}
+              <button
+                type="button"
+                onClick={() => setIsCategoryFormOpen(true)}
+                className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#1D63FF] hover:bg-blue-50/30 dark:hover:bg-blue-950/20 p-3 text-center transition-all group cursor-pointer min-h-[85px]"
+              >
+                <Plus className="h-4 w-4 text-slate-400 group-hover:text-[#1D63FF]" />
+                <span className="mt-1 text-xs font-bold text-slate-600 dark:text-slate-300 group-hover:text-[#1D63FF]">
+                  + Nova Categoria
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Real-Time Dynamic Summary Panel (5 cols on XL)
@@ -708,7 +937,7 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
           {/* GROUP 1: Preço Sugerido Recomendado */}
           <div
             data-testid="summary-group-price"
-            className="rounded-3xl bg-[#0D0F14] dark:bg-[#1D63FF] border border-slate-800 dark:border-blue-400/30 p-6 text-white shadow-2xl transition-colors"
+            className="rounded-3xl bg-[#0D0F14] dark:bg-[#1D63FF] border border-slate-800 dark:border-blue-400/30 p-4 sm:p-6 text-white shadow-2xl transition-colors"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-300 dark:text-blue-100">
@@ -1009,6 +1238,8 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
         currentCalcParams={params}
         currentBreakdown={breakdown}
         products={products}
+        categories={categories}
+        selectedCategory={selectedProductCategory}
         sales={sales}
         onCreateProduct={onCreateProduct}
         onDeleteProduct={onDeleteProduct}
@@ -1020,6 +1251,23 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
         setIsCreateProductModalOpen={setIsCreateProductModalOpen}
         isRegisterSaleModalOpen={isRegisterSaleModalOpen}
         setIsRegisterSaleModalOpen={setIsRegisterSaleModalOpen}
+      />
+
+      {/* Category Deletion Confirmation Modal */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(categoryToDelete)}
+        title="Excluir Categoria"
+        description="Tem certeza que deseja excluir esta categoria? Os produtos cadastrados nela manterão seus dados, mas a categoria será removida do catálogo."
+        itemLabel={categoryToDelete?.name}
+        confirmLabel="Sim, Excluir Categoria"
+        onConfirm={() => {
+          if (categoryToDelete) {
+            onDeleteCategory(categoryToDelete.id);
+            showToast(`Categoria "${categoryToDelete.name}" excluída.`);
+            setCategoryToDelete(null);
+          }
+        }}
+        onCancel={() => setCategoryToDelete(null)}
       />
     </div>
   );
