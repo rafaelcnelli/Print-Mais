@@ -145,3 +145,119 @@ test('Quotes are built from products with quantities and generate WhatsApp text'
   }
 });
 
+test('PRINTMAIS_PLANS includes Free plan and Pro Monthly/Annual plans with 10-day free trial', async () => {
+  const { PRINTMAIS_PLANS } = await import('./pricing');
+
+  assert.equal(PRINTMAIS_PLANS.length, 3);
+  const freePlan = PRINTMAIS_PLANS.find((p) => p.id === 'free');
+  const proMonthly = PRINTMAIS_PLANS.find((p) => p.id === 'pro_monthly');
+  const proAnnual = PRINTMAIS_PLANS.find((p) => p.id === 'pro_annual');
+
+  assert.ok(freePlan);
+  assert.equal(freePlan.priceMonthly, 0);
+  assert.equal(freePlan.trialDays, 0);
+
+  assert.ok(proMonthly);
+  assert.equal(proMonthly.trialDays, 10);
+  assert.equal(proMonthly.priceMonthly, 14.9);
+
+  assert.ok(proAnnual);
+  assert.equal(proAnnual.trialDays, 10);
+  assert.equal(proAnnual.priceMonthly, 12.9);
+  assert.equal(proAnnual.priceTotal, 154.8);
+});
+
+test('INITIAL_CATEGORIES and INITIAL_PRODUCTS support category filtering and product photo previews', async () => {
+  const { INITIAL_CATEGORIES, INITIAL_PRODUCTS } = await import('./seedData');
+  const { createSvgProductPreviewDataUrl } = await import('./imageHelpers');
+
+  assert.ok(INITIAL_CATEGORIES.length >= 4);
+  const categoryNames = INITIAL_CATEGORIES.map((c) => c.name);
+  assert.ok(categoryNames.includes('Peça Técnica'));
+  assert.ok(categoryNames.includes('Miniatura / Action Figure'));
+
+  for (const prod of INITIAL_PRODUCTS) {
+    assert.ok(prod.imageUrl && prod.imageUrl.startsWith('data:image/svg+xml'));
+    assert.ok(categoryNames.includes(prod.category));
+  }
+
+  const customPreview = createSvgProductPreviewDataUrl(
+    'Suporte GoPro Capacete',
+    'Peça Técnica',
+    '#1D63FF'
+  );
+  assert.ok(customPreview.startsWith('data:image/svg+xml;utf8,'));
+});
+
+test('isDateWithinTimeRange filters dates correctly for month, 3months, 6months, 1year, custom, and all', async () => {
+  const { isDateWithinTimeRange } = await import('../components/TimeRangeSelector');
+
+  // Reference date: 2026-11-15T12:00:00Z
+  const refDate = new Date('2026-11-15T12:00:00Z');
+
+  // Dates:
+  // 10 days ago: 2026-11-05
+  // 45 days ago: 2026-10-01
+  // 120 days ago: 2026-07-18
+  // 240 days ago: 2026-03-20
+  // 400 days ago: 2025-10-11
+  const d10 = '2026-11-05T10:00:00Z';
+  const d45 = '2026-10-01T10:00:00Z';
+  const d120 = '2026-07-18T10:00:00Z';
+  const d240 = '2026-03-20T10:00:00Z';
+  const d400 = '2025-10-11T10:00:00Z';
+
+  // All
+  assert.equal(isDateWithinTimeRange(d400, { period: 'all' }, refDate), true);
+
+  // Month (30 days)
+  assert.equal(isDateWithinTimeRange(d10, { period: 'month' }, refDate), true);
+  assert.equal(isDateWithinTimeRange(d45, { period: 'month' }, refDate), false);
+
+  // 3 Months (90 days)
+  assert.equal(isDateWithinTimeRange(d10, { period: '3months' }, refDate), true);
+  assert.equal(isDateWithinTimeRange(d45, { period: '3months' }, refDate), true);
+  assert.equal(isDateWithinTimeRange(d120, { period: '3months' }, refDate), false);
+
+  // 6 Months (180 days)
+  assert.equal(isDateWithinTimeRange(d120, { period: '6months' }, refDate), true);
+  assert.equal(isDateWithinTimeRange(d240, { period: '6months' }, refDate), false);
+
+  // 1 Year (365 days)
+  assert.equal(isDateWithinTimeRange(d240, { period: '1year' }, refDate), true);
+  assert.equal(isDateWithinTimeRange(d400, { period: '1year' }, refDate), false);
+
+  // Custom date range
+  assert.equal(
+    isDateWithinTimeRange(
+      d45,
+      { period: 'custom', startDate: '2026-09-01', endDate: '2026-10-15' },
+      refDate
+    ),
+    true
+  );
+  assert.equal(
+    isDateWithinTimeRange(
+      d10,
+      { period: 'custom', startDate: '2026-09-01', endDate: '2026-10-15' },
+      refDate
+    ),
+    false
+  );
+});
+
+test('FAMOUS_FILAMENT_BRANDS includes famous 3D printing brands and Genérico', async () => {
+  const { FAMOUS_FILAMENT_BRANDS } = await import('../components/InventoryView');
+
+  assert.ok(Array.isArray(FAMOUS_FILAMENT_BRANDS));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('Genérico'));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('Voolt3D'));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('Bambu Lab'));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('eSUN'));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('Creality'));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('GTMax3D'));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('Sunlu'));
+  assert.ok(FAMOUS_FILAMENT_BRANDS.includes('Elegoo'));
+});
+
+

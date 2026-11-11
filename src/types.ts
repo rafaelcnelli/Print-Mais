@@ -148,6 +148,15 @@ export interface SpoolRecord {
   createdAtIso: string;
 }
 
+export interface ProductCategoryRecord {
+  id: string;
+  ownerId: string;
+  name: string;
+  description: string;
+  colorHex: string;
+  createdAtIso: string;
+}
+
 export interface ProductRecord {
   id: string;
   ownerId: string;
@@ -164,6 +173,7 @@ export interface ProductRecord {
   profitMarginPercent: number;
   stockQuantity: number;
   description: string;
+  imageUrl?: string;
   paramsSnapshot?: CalculatorParams;
   createdAtIso: string;
 }
@@ -176,6 +186,7 @@ export interface SaleItemRecord {
   unitCost: number;
   unitPrice: number;
   weightGrams: number;
+  imageUrl?: string;
 }
 
 export interface SaleRecord {

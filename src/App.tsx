@@ -25,12 +25,17 @@ import {
   saveTransactionToFirestore,
   signInWithGoogle,
   signOutUser,
+  updateProductInFirestore,
   updateProductStockInFirestore,
+  updateQuoteInFirestore,
   updateQuoteStatusInFirestore,
+  updateSpoolInFirestore,
   updateSpoolWeightInFirestore,
+  updateTransactionInFirestore,
 } from './firebase';
 import {
   CalculatorParams,
+  ProductCategoryRecord,
   ProductRecord,
   QuoteRecord,
   SaleRecord,
@@ -40,8 +45,11 @@ import {
 import {
   CALCULATOR_PRESETS,
   formatCurrencyBRL,
+  PRINTMAIS_PLANS,
+  SubscriptionPlanId,
 } from './utils/pricing';
 import {
+  INITIAL_CATEGORIES,
   INITIAL_PRODUCTS,
   INITIAL_QUOTES,
   INITIAL_SALES,
@@ -49,7 +57,9 @@ import {
   INITIAL_TRANSACTIONS,
 } from './utils/seedData';
 import { AppAccount, AuthView } from './components/AuthView';
+import { LandingPageView } from './components/LandingPageView';
 import { CalculatorView } from './components/CalculatorView';
+import { ProductsCatalogView } from './components/ProductsCatalogView';
 import { CloseOrderDetails, OrdersView } from './components/OrdersView';
 import { CashFlowView } from './components/CashFlowView';
 import { InventoryView } from './components/InventoryView';
@@ -63,10 +73,17 @@ import {
   LogOut,
   Moon,
   Sun,
+  Tags,
   Wallet,
 } from 'lucide-react';
 
-type ActiveScreen = 'calculator' | 'orders' | 'cashflow' | 'inventory' | 'reports';
+type ActiveScreen =
+  | 'calculator'
+  | 'products'
+  | 'orders'
+  | 'cashflow'
+  | 'inventory'
+  | 'reports';
 
 const STORAGE_KEYS = {
   THEME: '3dpm_theme_v1',
@@ -79,6 +96,7 @@ interface StoredLocalUser {
   displayName: string;
   email: string;
   password: string;
+  plan?: SubscriptionPlanId;
 }
 
 function getScopedKey(prefix: string, uid: string) {
@@ -87,12 +105,16 @@ function getScopedKey(prefix: string, uid: string) {
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<ActiveScreen>('calculator');
+  const [publicScreen, setPublicScreen] = useState<'landing' | 'auth'>('landing');
+  const [authInitialMode, setAuthInitialMode] = useState<'login' | 'register'>('login');
+  const [authSelectedPlan, setAuthSelectedPlan] = useState<SubscriptionPlanId>('pro_annual');
+
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
     return saved ? saved === 'dark' : true;
   });
 
-  // Active Account State (starts null -> shows Login/Register screen first, unless ?autostart=1)
+  // Active Account State (starts null -> shows Landing Page first, unless ?autostart=1)
   const [account, setAccount] = useState<AppAccount | null>(() => {
     if (
       typeof window !== 'undefined' &&
@@ -101,8 +123,9 @@ export default function App() {
       return {
         uid: 'local_studio',
         displayName: 'Oficina Maker Pro',
-        email: 'contato@printgoals3d.com.br',
+        email: 'contato@printmais.com.br',
         mode: 'local_account',
+        plan: 'pro_annual',
       };
     }
     try {
@@ -124,6 +147,8 @@ export default function App() {
   );
   const [spools, setSpools] = useState<SpoolRecord[]>(INITIAL_SPOOLS);
   const [products, setProducts] = useState<ProductRecord[]>(INITIAL_PRODUCTS);
+  const [categories, setCategories] =
+    useState<ProductCategoryRecord[]>(INITIAL_CATEGORIES);
   const [sales, setSales] = useState<SaleRecord[]>(INITIAL_SALES);
 
   // Calculator parameters state
@@ -170,6 +195,15 @@ export default function App() {
   // Load scoped local data whenever account changes (for local_account or initial cache)
   useEffect(() => {
     if (!account) return;
+    try {
+      const cRaw = localStorage.getItem(
+        getScopedKey('3dpm_categories', account.uid)
+      );
+      setCategories(cRaw ? JSON.parse(cRaw) : INITIAL_CATEGORIES);
+    } catch {
+      setCategories(INITIAL_CATEGORIES);
+    }
+
     if (account.mode === 'local_account') {
       try {
         const qRaw = localStorage.getItem(getScopedKey('3dpm_quotes', account.uid));
@@ -191,6 +225,16 @@ export default function App() {
       }
     }
   }, [account]);
+
+  // Persist categories for both local and Firebase accounts
+  useEffect(() => {
+    if (account) {
+      localStorage.setItem(
+        getScopedKey('3dpm_categories', account.uid),
+        JSON.stringify(categories)
+      );
+    }
+  }, [categories, account]);
 
   // Save scoped local data when in local_account mode
   useEffect(() => {
@@ -497,6 +541,36 @@ export default function App() {
     return newQuote;
   };
 
+  const handleUpdateQuote = async (updatedQuote: QuoteRecord) => {
+    setQuotes((prev) =>
+      prev.map((q) => (q.id === updatedQuote.id ? updatedQuote : q))
+    );
+    if (canUseCloudFirestore && updatedQuote.status !== 'completed') {
+      await updateQuoteInFirestore(updatedQuote);
+    }
+
+    // If the quote/order is completed, also keep linked Cash Flow transactions updated
+    if (updatedQuote.status === 'completed') {
+      setTransactions((prev) =>
+        prev.map((tx) => {
+          if (
+            tx.notes?.includes(`#${updatedQuote.id.slice(-6)}`) ||
+            (tx.clientName === updatedQuote.clientName &&
+              tx.title.includes(updatedQuote.projectName.slice(0, 15)))
+          ) {
+            return {
+              ...tx,
+              title: `Venda: ${updatedQuote.projectName} — ${updatedQuote.clientName}`,
+              amount: updatedQuote.totalPrice,
+              clientName: updatedQuote.clientName,
+            };
+          }
+          return tx;
+        })
+      );
+    }
+  };
+
   const handleApproveQuote = async (quoteId: string) => {
     if (canUseCloudFirestore) {
       await updateQuoteStatusInFirestore(quoteId, 'approved');
@@ -517,6 +591,33 @@ export default function App() {
       setQuotes((prev) =>
         prev.map((q) => (q.id === quote.id ? { ...q, status: 'completed' } : q))
       );
+    }
+
+    // Optional Filament Stock Deduction per product sold
+    if (
+      orderDetails?.filamentDeductions &&
+      orderDetails.filamentDeductions.length > 0
+    ) {
+      const deductionsBySpool = new Map<string, number>();
+      for (const ded of orderDetails.filamentDeductions) {
+        if (ded.spoolId && ded.gramsUsed > 0) {
+          deductionsBySpool.set(
+            ded.spoolId,
+            (deductionsBySpool.get(ded.spoolId) || 0) + ded.gramsUsed
+          );
+        }
+      }
+
+      for (const [spoolId, totalGramsToDeduct] of deductionsBySpool.entries()) {
+        const targetSpool = spools.find((s) => s.id === spoolId);
+        if (targetSpool) {
+          const nextRemaining = Math.max(
+            0,
+            targetSpool.remainingWeightGrams - totalGramsToDeduct
+          );
+          await handleUpdateSpoolWeight(spoolId, nextRemaining);
+        }
+      }
     }
 
     const now = new Date();
@@ -558,6 +659,14 @@ export default function App() {
       0
     );
 
+    const filamentSummaryNote =
+      orderDetails?.filamentDeductions &&
+      orderDetails.filamentDeductions.length > 0
+        ? ` · Filamento descontado: ${orderDetails.filamentDeductions
+            .map((d) => `${d.gramsUsed}g`)
+            .join(' + ')}`
+        : '';
+
     await handleRegisterSale({
       clientName: quote.clientName,
       clientContact: quote.clientContact || '',
@@ -585,10 +694,11 @@ export default function App() {
       totalCost: Math.round(totalCost * 100) / 100,
       netProfit: quote.netProfit,
       totalWeightGrams: Math.round(totalWeightGrams),
-      notes:
+      notes: `${
         orderDetails?.notes ||
         quote.notes ||
-        `Pedido convertido a partir do orçamento #${quote.id.slice(-6)}`,
+        `Pedido convertido a partir do orçamento #${quote.id.slice(-6)}`
+      }${filamentSummaryNote}`,
       status: 'concluida',
     });
   };
@@ -601,7 +711,7 @@ export default function App() {
     }
   };
 
-  // Handlers for Products (Created inside Calculator)
+  // Handlers for Products & Categories (Created inside Calculator or Catalog Page)
   const handleCreateProduct = async (
     productInput: Omit<ProductRecord, 'id' | 'ownerId' | 'createdAtIso'>
   ): Promise<ProductRecord> => {
@@ -621,12 +731,39 @@ export default function App() {
     return newProduct;
   };
 
+  const handleUpdateProduct = async (updatedProduct: ProductRecord) => {
+    setProducts((prev) =>
+      prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+    );
+    if (canUseCloudFirestore) {
+      await updateProductInFirestore(updatedProduct);
+    }
+  };
+
   const handleDeleteProduct = async (productId: string) => {
     if (canUseCloudFirestore) {
       await deleteProductFromFirestore(productId);
     } else {
       setProducts((prev) => prev.filter((p) => p.id !== productId));
     }
+  };
+
+  const handleCreateCategory = (
+    catInput: Omit<ProductCategoryRecord, 'id' | 'ownerId' | 'createdAtIso'>
+  ): ProductCategoryRecord => {
+    const ownerUid = account?.uid || 'local_studio';
+    const newCat: ProductCategoryRecord = {
+      ...catInput,
+      id: `cat_${Date.now()}`,
+      ownerId: ownerUid,
+      createdAtIso: new Date().toISOString(),
+    };
+    setCategories((prev) => [...prev, newCat]);
+    return newCat;
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
   };
 
   // Handlers for Sales (Registered with Products, Date, Time, Client -> Enters CashFlow)
@@ -734,6 +871,15 @@ export default function App() {
     }
   };
 
+  const handleUpdateTransaction = async (updatedTx: TransactionRecord) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === updatedTx.id ? updatedTx : t))
+    );
+    if (canUseCloudFirestore) {
+      await updateTransactionInFirestore(updatedTx);
+    }
+  };
+
   const handleDeleteTransaction = async (txId: string) => {
     if (canUseCloudFirestore) {
       await deleteTransactionFromFirestore(txId);
@@ -758,6 +904,15 @@ export default function App() {
       await saveSpoolToFirestore(newSpool);
     } else {
       setSpools((prev) => [newSpool, ...prev]);
+    }
+  };
+
+  const handleUpdateSpool = async (updatedSpool: SpoolRecord) => {
+    setSpools((prev) =>
+      prev.map((s) => (s.id === updatedSpool.id ? updatedSpool : s))
+    );
+    if (canUseCloudFirestore) {
+      await updateSpoolInFirestore(updatedSpool);
     }
   };
 
@@ -810,9 +965,10 @@ export default function App() {
     name: string;
     email: string;
     password: string;
+    plan?: SubscriptionPlanId;
   }) => {
     setAuthError(null);
-    const { mode, name, email, password } = params;
+    const { mode, name, email, password, plan = 'pro_annual' } = params;
 
     if (import.meta.env.VITE_FIREBASE_EMAIL_AUTH_ENABLED === 'true') {
       if (mode === 'register') {
@@ -822,6 +978,7 @@ export default function App() {
           displayName: name || u.email?.split('@')[0] || 'Maker Pro',
           email: u.email || email,
           mode: 'firebase',
+          plan,
         });
         return;
       } else {
@@ -831,6 +988,7 @@ export default function App() {
           displayName: u.displayName || u.email?.split('@')[0] || 'Maker Pro',
           email: u.email || email,
           mode: 'firebase',
+          plan,
         });
         return;
       }
@@ -855,6 +1013,7 @@ export default function App() {
         displayName: name || email.split('@')[0],
         email,
         password,
+        plan,
       };
       localStorage.setItem(
         STORAGE_KEYS.LOCAL_USERS,
@@ -865,6 +1024,7 @@ export default function App() {
         displayName: newUser.displayName,
         email: newUser.email,
         mode: 'local_account',
+        plan,
       });
     } else {
       if (existing && existing.password !== password) {
@@ -878,6 +1038,7 @@ export default function App() {
         displayName: targetName,
         email,
         mode: 'local_account',
+        plan: existing?.plan || plan,
       });
     }
   };
@@ -889,12 +1050,30 @@ export default function App() {
       }
     } finally {
       setAccount(null);
+      setPublicScreen('landing');
       setActiveScreen('calculator');
     }
   };
 
-  // Gate: Show Login & Registration Screen first when not logged in
+  // Gate: Show Landing Page as initial page when not logged in; switch to AuthView when user clicks Entrar / Planos
   if (!account) {
+    if (publicScreen === 'landing') {
+      return (
+        <LandingPageView
+          isDark={isDark}
+          onToggleTheme={() => setIsDark(!isDark)}
+          onOpenAuth={(options) => {
+            setAuthInitialMode(options?.initialMode || 'login');
+            if (options?.selectedPlan) {
+              setAuthSelectedPlan(options.selectedPlan);
+            }
+            setPublicScreen('auth');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      );
+    }
+
     return (
       <AuthView
         isDark={isDark}
@@ -903,6 +1082,12 @@ export default function App() {
         onGoogleLogin={handleGoogleLogin}
         onEmailAuth={handleEmailAuth}
         externalError={authError}
+        initialMode={authInitialMode}
+        initialPlan={authSelectedPlan}
+        onBackToLanding={() => {
+          setPublicScreen('landing');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
     );
   }
@@ -923,6 +1108,12 @@ export default function App() {
       label: 'Calculadora de Preço',
       shortLabel: 'Calculadora',
       icon: Calculator,
+    },
+    {
+      id: 'products',
+      label: `Produtos & Categorias (${products.length})`,
+      shortLabel: 'Produtos',
+      icon: Tags,
     },
     {
       id: 'orders',
@@ -965,7 +1156,7 @@ export default function App() {
                 <span className="rounded-full bg-white" />
               </div>
               <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0">
-                PrintGoals 3D
+                PrintMais
               </span>
             </div>
 
@@ -982,7 +1173,7 @@ export default function App() {
               </p>
             </div>
 
-            {/* Sidebar Navigation (5 Separated Pages) */}
+            {/* Sidebar Navigation (6 Separated Pages) */}
             <nav aria-label="Menu Principal Lateral" className="mt-7 space-y-1.5">
               <div className="pb-1 text-[11px] font-bold tracking-wider text-slate-400">
                 PÁGINAS DO SISTEMA
@@ -1041,6 +1232,15 @@ export default function App() {
                     {spools.length} un
                   </span>
                 </div>
+                <div className="flex items-center justify-between rounded-2xl bg-slate-50 dark:bg-[#161923] px-3.5 py-2.5">
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Plano da Conta
+                  </span>
+                  <span className="font-mono font-bold text-[#1D63FF] dark:text-blue-400">
+                    {PRINTMAIS_PLANS.find((p) => p.id === (account.plan || 'pro_annual'))
+                      ?.name || 'Plano Pro Anual'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -1089,7 +1289,7 @@ export default function App() {
               </div>
               <div>
                 <div className="text-sm font-extrabold leading-none text-slate-900 dark:text-white">
-                  PrintGoals 3D
+                  PrintMais
                 </div>
                 <div className="text-[11px] font-medium text-[#1D63FF]">
                   {navItems.find((n) => n.id === activeScreen)?.shortLabel}
@@ -1172,15 +1372,32 @@ export default function App() {
               />
             )}
 
+            {activeScreen === 'products' && (
+              <ProductsCatalogView
+                products={products}
+                categories={categories}
+                onCreateProduct={handleCreateProduct}
+                onUpdateProduct={handleUpdateProduct}
+                onDeleteProduct={handleDeleteProduct}
+                onCreateCategory={handleCreateCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onNavigateToOrdersWithProduct={() => setActiveScreen('orders')}
+              />
+            )}
+
             {activeScreen === 'orders' && (
               <OrdersView
                 quotes={quotes}
                 products={products}
+                spools={spools}
+                categories={categories}
                 onCreateQuote={handleCreateQuote}
+                onUpdateQuote={handleUpdateQuote}
                 onApproveQuote={handleApproveQuote}
                 onConvertQuoteToOrder={handleConvertQuoteToOrder}
                 onDeleteQuote={handleDeleteQuote}
                 onNavigateToCalculator={() => setActiveScreen('calculator')}
+                onNavigateToProducts={() => setActiveScreen('products')}
                 onNavigateToCashflow={() => setActiveScreen('cashflow')}
               />
             )}
@@ -1189,6 +1406,7 @@ export default function App() {
               <CashFlowView
                 transactions={transactions}
                 onAddTransaction={handleAddTransaction}
+                onUpdateTransaction={handleUpdateTransaction}
                 onDeleteTransaction={handleDeleteTransaction}
                 onNavigateToCalculator={() => setActiveScreen('calculator')}
               />
@@ -1198,6 +1416,7 @@ export default function App() {
               <InventoryView
                 spools={spools}
                 onAddSpool={handleAddSpool}
+                onUpdateSpool={handleUpdateSpool}
                 onUpdateSpoolWeight={handleUpdateSpoolWeight}
                 onDeleteSpool={handleDeleteSpool}
               />
@@ -1221,7 +1440,7 @@ export default function App() {
       {/* MOBILE FIXED BOTTOM NAVIGATION BAR WITH ICONS (lg:hidden) */}
       <nav
         aria-label="Menu Inferior Mobile"
-        className="fixed bottom-0 left-0 right-0 z-40 grid h-16 grid-cols-5 items-center border-t border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 px-1 backdrop-blur-md lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-40 grid h-16 grid-cols-6 items-center border-t border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 px-1 backdrop-blur-md lg:hidden"
       >
         {navItems.map((item) => {
           const Icon = item.icon;

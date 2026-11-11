@@ -45,7 +45,7 @@ export function buildQuoteWhatsAppMessage(quote: QuoteRecord): string {
   const subtotal = items.reduce((acc, i) => acc + i.unitPrice * i.quantity, 0);
 
   const lines: string[] = [
-    `*ORÇAMENTO DE IMPRESSÃO 3D — PRINTGOALS 3D*`,
+    `*ORÇAMENTO DE IMPRESSÃO 3D — PRINTMAIS*`,
     `Olá, *${quote.clientName || 'Cliente'}*! Segue a proposta comercial dos produtos solicitados:`,
     ``,
     `*ITENS DO ORÇAMENTO:*`,
@@ -274,7 +274,7 @@ export const QuotePdfModal: React.FC<QuotePdfModalProps> = ({
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
             <div>
               <span className="text-xs font-extrabold tracking-wider text-[#1D63FF]">
-                PRINTGOALS 3D · PROPOSTA COMERCIAL DE PRODUTOS
+                PRINTMAIS · PROPOSTA COMERCIAL DE PRODUTOS
               </span>
               <h3 className="mt-1 text-2xl font-extrabold tracking-tight">
                 Orçamento #{quote.id.slice(-6).toUpperCase()}
@@ -424,7 +424,7 @@ export const QuotePdfModal: React.FC<QuotePdfModalProps> = ({
             <div>
               Orçamento sujeito à disponibilidade de agenda de impressão na confirmação do pedido.
             </div>
-            <div className="font-mono">PrintGoals 3D · Gestão & Precificação</div>
+            <div className="font-mono">PrintMais · Gestão & Precificação</div>
           </div>
         </div>
 

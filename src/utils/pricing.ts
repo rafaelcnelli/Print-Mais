@@ -478,3 +478,83 @@ export function computeMonthlyOverviewTrends(
     monthlyTrend,
   };
 }
+
+export type SubscriptionPlanId = 'free' | 'pro_monthly' | 'pro_annual';
+
+export interface SubscriptionPlan {
+  id: SubscriptionPlanId;
+  name: string;
+  billingLabel: string;
+  priceMonthly: number;
+  priceTotal: number;
+  trialDays: number;
+  savingsPercent?: number;
+  isFeatured?: boolean;
+  description: string;
+  ctaLabel: string;
+  features: string[];
+}
+
+export const PRINTMAIS_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'free',
+    name: 'Plano Grátis',
+    billingLabel: 'Grátis para sempre',
+    priceMonthly: 0,
+    priceTotal: 0,
+    trialDays: 0,
+    description:
+      'Ideal para quem está começando: teste a calculadora completa e organize o fluxo inicial e básico da sua oficina 3D.',
+    ctaLabel: 'Começar no Plano Grátis',
+    features: [
+      'Calculadora de custos 3D completa (FDM e Resina SLA)',
+      'Decomposição dos 5 pilares de custo e ROI da impressora',
+      'Fluxo de caixa inicial e básico de entradas e saídas',
+      'Cadastro inicial básico (até 3 produtos e 2 bobinas)',
+      'Acesso web em computador e celular',
+    ],
+  },
+  {
+    id: 'pro_monthly',
+    name: 'Plano Pro Mensal',
+    billingLabel: 'Cobrado mensalmente após 10 dias grátis',
+    priceMonthly: 14.9,
+    priceTotal: 14.9,
+    trialDays: 10,
+    description:
+      'Todos os recursos liberados para profissionalizar sua produção, criar produtos, enviar orçamentos e controlar o caixa.',
+    ctaLabel: 'Testar 10 Dias Grátis no Pro Mensal',
+    features: [
+      '10 dias de teste grátis com acesso total (R$ 0 hoje)',
+      'Catálogo ilimitado de produtos criados na calculadora',
+      'Orçamentos ilimitados com exportação em PDF e WhatsApp',
+      'Conversão de orçamento em pedido realizado em 1 clique',
+      'Registro de vendas com baixa automática de estoque',
+      'Fluxo de caixa completo e controle ilimitado de bobinas',
+      'Dashboard financeiro, Breakeven e Simulador de Fazenda 3D',
+    ],
+  },
+  {
+    id: 'pro_annual',
+    name: 'Plano Pro Anual',
+    billingLabel: 'R$ 154,80/ano (equivale a R$ 12,90/mês) após 10 dias grátis',
+    priceMonthly: 12.9,
+    priceTotal: 154.8,
+    trialDays: 10,
+    savingsPercent: 13,
+    isFeatured: true,
+    description:
+      'A escolha das oficinas lucrativas: todos os recursos Pro liberados com 10 dias de teste grátis por apenas R$ 12,90/mês no plano anual.',
+    ctaLabel: 'Testar 10 Dias Grátis no Pro Anual',
+    features: [
+      '10 dias de teste grátis + mensalidade reduzida p/ R$ 12,90/mês',
+      'Todos os recursos do Plano Pro sem limites de uso',
+      'Catálogo ilimitado de produtos + histórico completo de vendas',
+      'Orçamentos profissionais em PDF e texto para WhatsApp',
+      'Controle avançado de carretéis com alertas de estoque crítico',
+      'Relatórios de tendência mensal, Breakeven e Simulador de ROI',
+      'Sincronização em nuvem e suporte prioritário',
+    ],
+  },
+];
+

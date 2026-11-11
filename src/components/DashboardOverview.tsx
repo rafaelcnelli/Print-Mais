@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -13,6 +13,11 @@ import {
   computeMonthlyOverviewTrends,
   formatCurrencyBRL,
 } from '../utils/pricing';
+import {
+  isDateWithinTimeRange,
+  TimeRangeFilterValue,
+  TimeRangeSelector,
+} from './TimeRangeSelector';
 import {
   AlertTriangle,
   ArrowRight,
@@ -43,7 +48,25 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onNavigateToOrders,
   onNavigateToInventory,
 }) => {
-  const metrics = computeMonthlyOverviewTrends(transactions, quotes, spools);
+  const [timeFilter, setTimeFilter] = useState<TimeRangeFilterValue>({
+    period: 'all',
+  });
+
+  const scopedTransactions = useMemo(() => {
+    return transactions.filter((t) =>
+      isDateWithinTimeRange(t.dateIso || t.createdAtIso, timeFilter)
+    );
+  }, [transactions, timeFilter]);
+
+  const scopedQuotes = useMemo(() => {
+    return quotes.filter((q) =>
+      isDateWithinTimeRange(q.createdAtIso, timeFilter)
+    );
+  }, [quotes, timeFilter]);
+
+  const metrics = useMemo(() => {
+    return computeMonthlyOverviewTrends(scopedTransactions, scopedQuotes, spools);
+  }, [scopedTransactions, scopedQuotes, spools]);
 
   const kgConsumed = (metrics.totalFilamentGramsConsumed / 1000).toLocaleString('pt-BR', {
     minimumFractionDigits: 2,
@@ -55,7 +78,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       aria-label="Visão Geral Inicial do Dashboard"
       className="space-y-4"
     >
-      {/* Title bar with quick subtitle */}
+      {/* Title bar with quick subtitle & Time Range Filter */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1D63FF] text-white shadow-sm shadow-blue-500/20">
@@ -71,8 +94,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-[#181C26] px-3 py-1">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <TimeRangeSelector
+            value={timeFilter}
+            onChange={setTimeFilter}
+          />
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-[#181C26] px-3 py-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             Dados Sincronizados
           </span>

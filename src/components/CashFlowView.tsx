@@ -5,24 +5,35 @@ import {
   TransactionType,
 } from '../types';
 import { formatCurrencyBRL } from '../utils/pricing';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import {
   ArrowDownRight,
   ArrowUpRight,
+  CheckCircle2,
   Clock,
   CreditCard,
+  Edit3,
   Plus,
   Search,
   ShoppingCart,
   Trash2,
   User,
   Wallet,
+  X,
 } from 'lucide-react';
+
+import {
+  isDateWithinTimeRange,
+  TimeRangeFilterValue,
+  TimeRangeSelector,
+} from './TimeRangeSelector';
 
 interface CashFlowViewProps {
   transactions: TransactionRecord[];
   onAddTransaction: (
     tx: Omit<TransactionRecord, 'id' | 'ownerId' | 'createdAtIso'>
   ) => void;
+  onUpdateTransaction?: (updatedTx: TransactionRecord) => void;
   onDeleteTransaction: (txId: string) => void;
   onNavigateToCalculator?: () => void;
 }
@@ -41,9 +52,13 @@ const CATEGORY_LABELS: Record<TransactionCategory, string> = {
 export const CashFlowView: React.FC<CashFlowViewProps> = ({
   transactions,
   onAddTransaction,
+  onUpdateTransaction,
   onDeleteTransaction,
   onNavigateToCalculator,
 }) => {
+  const [timeFilter, setTimeFilter] = useState<TimeRangeFilterValue>({
+    period: 'all',
+  });
   const [txType, setTxType] = useState<TransactionType>('income');
   const [txTitle, setTxTitle] = useState('');
   const [txCategory, setTxCategory] =
@@ -58,12 +73,40 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
     'all'
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Edit Transaction Modal State
+  const [editingTx, setEditingTx] = useState<TransactionRecord | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editType, setEditType] = useState<TransactionType>('income');
+  const [editCategory, setEditCategory] =
+    useState<TransactionCategory>('venda_direta');
+  const [editAmount, setEditAmount] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editClientName, setEditClientName] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Delete Confirmation Modal State
+  const [txToDelete, setTxToDelete] = useState<TransactionRecord | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3400);
+  };
+
+  // Transactions filtered by the time period (Mês, 3 Meses, 6 Meses, 1 Ano, Personalizado, Tudo)
+  const timeScopedTransactions = useMemo(() => {
+    return transactions.filter((t) =>
+      isDateWithinTimeRange(t.dateIso || t.createdAtIso, timeFilter)
+    );
+  }, [transactions, timeFilter]);
 
   const financialTotals = useMemo(() => {
-    const totalIn = transactions
+    const totalIn = timeScopedTransactions
       .filter((t) => t.type === 'income')
       .reduce((acc, t) => acc + t.amount, 0);
-    const totalOut = transactions
+    const totalOut = timeScopedTransactions
       .filter((t) => t.type === 'expense')
       .reduce((acc, t) => acc + t.amount, 0);
     return {
@@ -71,10 +114,10 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
       totalOut,
       balance: totalIn - totalOut,
     };
-  }, [transactions]);
+  }, [timeScopedTransactions]);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
+    return timeScopedTransactions.filter((t) => {
       if (filterType !== 'all' && t.type !== filterType) return false;
       if (
         searchQuery.trim() &&
@@ -89,7 +132,7 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
       }
       return true;
     });
-  }, [transactions, filterType, searchQuery]);
+  }, [timeScopedTransactions, filterType, searchQuery]);
 
   const handleTxTypeSwitch = (nextType: TransactionType) => {
     setTxType(nextType);
@@ -116,9 +159,54 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
       dateIso: txDate || new Date().toISOString().slice(0, 10),
       notes: txNotes.trim(),
     });
+    showToast(`Movimentação "${txTitle.trim()}" registrada no caixa!`);
     setTxTitle('');
     setTxAmount('');
     setTxNotes('');
+  };
+
+  const handleOpenEditModal = (tx: TransactionRecord) => {
+    setEditingTx(tx);
+    setEditTitle(tx.title);
+    setEditType(tx.type);
+    setEditCategory(tx.category);
+    setEditAmount(String(tx.amount));
+    setEditDate(tx.dateIso || new Date().toISOString().slice(0, 10));
+    setEditClientName(tx.clientName || '');
+    setEditNotes(tx.notes || '');
+    setEditError(null);
+  };
+
+  const handleSaveEditedTransaction = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    const numericAmount = parseFloat(editAmount);
+    if (!editTitle.trim()) {
+      setEditError('Informe a descrição do lançamento.');
+      return;
+    }
+    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
+      setEditError('Informe um valor válido maior que R$ 0,00.');
+      return;
+    }
+    setEditError(null);
+
+    const updated: TransactionRecord = {
+      ...editingTx,
+      title: editTitle.trim(),
+      type: editType,
+      category: editCategory,
+      amount: numericAmount,
+      dateIso: editDate || editingTx.dateIso,
+      clientName: editClientName.trim() || undefined,
+      notes: editNotes.trim(),
+    };
+
+    if (onUpdateTransaction) {
+      onUpdateTransaction(updated);
+    }
+    setEditingTx(null);
+    showToast(`Movimentação "${updated.title}" atualizada com sucesso!`);
   };
 
   return (
@@ -133,16 +221,42 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
           </p>
         </div>
 
-        {onNavigateToCalculator && (
-          <button
-            type="button"
-            onClick={onNavigateToCalculator}
-            className="inline-flex items-center gap-2 rounded-full bg-[#1D63FF] px-4 py-2 text-xs font-extrabold text-white hover:bg-blue-600 transition-colors shadow-sm"
-          >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            Criar Produto / Registrar Venda na Calculadora
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {toast && (
+            <div
+              role="status"
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3.5 py-1.5 text-xs font-extrabold text-emerald-600 dark:text-emerald-400"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {toast}
+            </div>
+          )}
+
+          {onNavigateToCalculator && (
+            <button
+              type="button"
+              onClick={onNavigateToCalculator}
+              className="inline-flex items-center gap-2 rounded-full bg-[#1D63FF] px-4 py-2 text-xs font-extrabold text-white hover:bg-blue-600 transition-colors shadow-sm"
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Criar Produto / Registrar Venda na Calculadora
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Time Range Selector for Cash Flow (Mês, 3 Meses, 6 Meses, 1 Ano, Personalizado, Tudo) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white dark:bg-[#14171F] p-3 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <TimeRangeSelector
+          value={timeFilter}
+          onChange={setTimeFilter}
+        />
+        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <span className="font-extrabold text-slate-900 dark:text-white tabular-nums">
+            {timeScopedTransactions.length}
+          </span>{' '}
+          {timeScopedTransactions.length === 1 ? 'lançamento no período' : 'lançamentos no período'}
+        </div>
       </div>
 
       {/* Top KPI Cards Row */}
@@ -247,7 +361,7 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-3.5">
             <div>
               <label
                 htmlFor="tx-title"
@@ -262,8 +376,8 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
                 onChange={(e) => setTxTitle(e.target.value)}
                 placeholder={
                   txType === 'income'
-                    ? 'Ex: Venda Lote 30x Suportes Controle PS5'
-                    : 'Ex: Compra 3x Filamento PETG + Bico 0.4mm'
+                    ? 'Ex: Venda Lote 20 Suportes Headset'
+                    : 'Ex: Compra 4 Bobinas PETG Voolt3D'
                 }
                 className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
               />
@@ -274,7 +388,7 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
                 htmlFor="tx-category"
                 className="block text-xs font-semibold text-slate-600 dark:text-slate-300"
               >
-                Categoria Operacional
+                Categoria
               </label>
               <select
                 id="tx-category"
@@ -282,12 +396,16 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
                 onChange={(e) =>
                   setTxCategory(e.target.value as TransactionCategory)
                 }
-                className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3.5 py-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
               >
                 {txType === 'income' ? (
                   <>
-                    <option value="venda_direta">Venda Direta</option>
-                    <option value="encomenda_lote">Encomenda de Lote</option>
+                    <option value="venda_direta">
+                      Venda Direta (E-commerce / Balcão)
+                    </option>
+                    <option value="encomenda_lote">
+                      Encomenda de Lote B2B
+                    </option>
                     <option value="prototipagem">
                       Prototipagem Sob Demanda
                     </option>
@@ -296,15 +414,13 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
                 ) : (
                   <>
                     <option value="filamento_resina">
-                      Compra de Filamentos / Resinas
+                      Filamentos & Resinas
                     </option>
                     <option value="pecas_reposicao">
-                      Peças Sobressalentes (Bicos, PTFE, Correias, Displays)
+                      Peças Sobressalentes (Bicos, PTFE, PEI)
                     </option>
-                    <option value="energia">
-                      Conta de Energia Elétrica Rateada
-                    </option>
-                    <option value="manutencao">Manutenção / Calibração</option>
+                    <option value="energia">Conta de Energia Rateada</option>
+                    <option value="manutencao">Manutenção de Máquina</option>
                     <option value="outros">Outras Despesas</option>
                   </>
                 )}
@@ -428,7 +544,7 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
                     <th className="pb-3 pr-3 font-semibold">Descrição</th>
                     <th className="pb-3 px-3 font-semibold">Categoria · Data</th>
                     <th className="pb-3 px-3 text-right font-semibold">Valor</th>
-                    <th className="pb-3 pl-3 text-right font-semibold">Ação</th>
+                    <th className="pb-3 pl-3 text-right font-semibold">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/70">
@@ -499,14 +615,28 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
                         {formatCurrencyBRL(tx.amount)}
                       </td>
                       <td className="py-3.5 pl-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => onDeleteTransaction(tx.id)}
-                          aria-label={`Excluir transação ${tx.title}`}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="inline-flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            data-testid={`btn-edit-tx-${tx.id}`}
+                            onClick={() => handleOpenEditModal(tx)}
+                            aria-label={`Editar movimentação ${tx.title}`}
+                            title="Editar lançamento"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 hover:text-[#1D63FF] transition-colors"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            data-testid={`btn-delete-tx-${tx.id}`}
+                            onClick={() => setTxToDelete(tx)}
+                            aria-label={`Excluir transação ${tx.title}`}
+                            title="Excluir lançamento"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -516,6 +646,228 @@ export const CashFlowView: React.FC<CashFlowViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* MODAL: EDITAR MOVIMENTAÇÃO / EXTRATO DO CAIXA */}
+      {editingTx && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-tx-modal-title"
+        >
+          <div className="w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div>
+                <h3
+                  id="edit-tx-modal-title"
+                  className="text-base font-extrabold text-slate-900 dark:text-white"
+                >
+                  Editar Movimentação / Extrato
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Atualize a descrição, categoria, valor ou data e salve no fluxo de caixa
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTx(null)}
+                aria-label="Fechar modal de edição"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedTransaction} className="mt-4 space-y-3.5">
+              {editError && (
+                <div
+                  role="alert"
+                  className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-semibold text-rose-500"
+                >
+                  {editError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Tipo de Movimentação
+                </span>
+                <div className="flex items-center gap-1 rounded-full bg-slate-100 dark:bg-[#0D0F14] p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditType('income');
+                      if (
+                        editCategory === 'filamento_resina' ||
+                        editCategory === 'pecas_reposicao' ||
+                        editCategory === 'energia' ||
+                        editCategory === 'manutencao'
+                      ) {
+                        setEditCategory('venda_direta');
+                      }
+                    }}
+                    className={`rounded-full px-3.5 py-1 text-xs font-bold transition-colors ${
+                      editType === 'income'
+                        ? 'bg-emerald-600 text-white'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    + Entrada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditType('expense');
+                      if (
+                        editCategory === 'venda_direta' ||
+                        editCategory === 'encomenda_lote' ||
+                        editCategory === 'prototipagem'
+                      ) {
+                        setEditCategory('filamento_resina');
+                      }
+                    }}
+                    className={`rounded-full px-3.5 py-1 text-xs font-bold transition-colors ${
+                      editType === 'expense'
+                        ? 'bg-rose-600 text-white'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    - Saída
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Descrição / Título
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Categoria
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) =>
+                      setEditCategory(e.target.value as TransactionCategory)
+                    }
+                    className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                  >
+                    <option value="venda_direta">Venda Direta</option>
+                    <option value="encomenda_lote">Encomenda de Lote</option>
+                    <option value="prototipagem">Prototipagem Sob Demanda</option>
+                    <option value="filamento_resina">Filamentos & Resinas</option>
+                    <option value="pecas_reposicao">Peças Sobressalentes</option>
+                    <option value="energia">Conta de Energia Rateada</option>
+                    <option value="manutencao">Manutenção de Máquina</option>
+                    <option value="outros">Outros Lançamentos</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Cliente / Fornecedor (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={editClientName}
+                    onChange={(e) => setEditClientName(e.target.value)}
+                    placeholder="Ex: TechNova Automação"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Valor (R$)
+                  </label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3.5 py-2 font-mono text-sm font-bold text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Data
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3 py-2 font-mono text-xs text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  Observações
+                </label>
+                <input
+                  type="text"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-[#1D63FF] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingTx(null)}
+                  className="rounded-full border border-slate-200 dark:border-slate-800 px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  data-testid="btn-save-edit-tx"
+                  className="rounded-full bg-[#1D63FF] px-5 py-2 text-xs font-extrabold text-white hover:bg-blue-600 transition-colors"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM DELETE MODAL FOR TRANSACTION */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(txToDelete)}
+        title="Excluir Lançamento do Caixa"
+        description="Tem certeza que deseja excluir esta movimentação do extrato financeiro? O saldo será recalculado."
+        itemLabel={
+          txToDelete
+            ? `${txToDelete.title} (${txToDelete.type === 'income' ? '+' : '-'}${formatCurrencyBRL(txToDelete.amount)})`
+            : undefined
+        }
+        onCancel={() => setTxToDelete(null)}
+        onConfirm={() => {
+          if (txToDelete) {
+            onDeleteTransaction(txToDelete.id);
+            showToast(`Movimentação "${txToDelete.title}" removida do extrato.`);
+            setTxToDelete(null);
+          }
+        }}
+      />
     </div>
   );
 };

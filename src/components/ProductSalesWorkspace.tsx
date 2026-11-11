@@ -9,6 +9,7 @@ import {
   SalesChannel,
 } from '../types';
 import { formatCurrencyBRL } from '../utils/pricing';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import {
   ArrowUpRight,
   Calendar,
@@ -103,6 +104,10 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'catalog' | 'new_sale' | 'sales_history'>('catalog');
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [productToDelete, setProductToDelete] = useState<ProductRecord | null>(
+    null
+  );
+  const [saleToDelete, setSaleToDelete] = useState<SaleRecord | null>(null);
 
   // Create Product Form State (synced from Calculator when opened)
   const [prodName, setProdName] = useState(currentCalcParams.projectName);
@@ -624,7 +629,7 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => onDeleteProduct(prod.id)}
+                          onClick={() => setProductToDelete(prod)}
                           aria-label={`Excluir produto ${prod.name}`}
                           className="rounded-xl p-2 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
                         >
@@ -1177,7 +1182,7 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => onDeleteSale(sale)}
+                            onClick={() => setSaleToDelete(sale)}
                             aria-label={`Excluir venda de ${sale.clientName}`}
                             className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
                           >
@@ -1375,6 +1380,48 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
           </div>
         </div>
       )}
+
+      {/* CONFIRM DELETE PRODUCT */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(productToDelete)}
+        title="Excluir Produto"
+        description="Tem certeza que deseja excluir este produto do seu catálogo?"
+        itemLabel={
+          productToDelete
+            ? `${productToDelete.name} (${productToDelete.sku})`
+            : undefined
+        }
+        onCancel={() => setProductToDelete(null)}
+        onConfirm={() => {
+          if (productToDelete) {
+            onDeleteProduct(productToDelete.id);
+            notify(`Produto "${productToDelete.name}" excluído.`);
+            setProductToDelete(null);
+          }
+        }}
+      />
+
+      {/* CONFIRM DELETE SALE */}
+      <ConfirmDeleteModal
+        isOpen={Boolean(saleToDelete)}
+        title="Excluir Venda Registrada"
+        description="Tem certeza que deseja excluir esta venda? O lançamento vinculado também será removido do Fluxo de Caixa."
+        itemLabel={
+          saleToDelete
+            ? `${saleToDelete.clientName} — ${saleToDelete.productName} (${formatCurrencyBRL(
+                saleToDelete.totalAmount
+              )})`
+            : undefined
+        }
+        onCancel={() => setSaleToDelete(null)}
+        onConfirm={() => {
+          if (saleToDelete) {
+            onDeleteSale(saleToDelete);
+            notify(`Venda de "${saleToDelete.clientName}" excluída.`);
+            setSaleToDelete(null);
+          }
+        }}
+      />
     </section>
   );
 };

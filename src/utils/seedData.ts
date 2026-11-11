@@ -1,10 +1,47 @@
 import {
+  ProductCategoryRecord,
   ProductRecord,
   QuoteRecord,
   SaleRecord,
   SpoolRecord,
   TransactionRecord,
 } from '../types';
+import { createSvgProductPreviewDataUrl } from './imageHelpers';
+
+export const INITIAL_CATEGORIES: ProductCategoryRecord[] = [
+  {
+    id: 'cat_seed_1',
+    ownerId: 'local_studio',
+    name: 'Peça Técnica',
+    description: 'Gabinetes, engrenagens, suportes mecânicos e reposição industrial.',
+    colorHex: '#1D63FF',
+    createdAtIso: '2026-10-10T10:00:00.000Z',
+  },
+  {
+    id: 'cat_seed_2',
+    ownerId: 'local_studio',
+    name: 'Miniatura / Action Figure',
+    description: 'Esculturas em resina 8K, bustos colecionáveis e miniaturas de RPG.',
+    colorHex: '#8B5CF6',
+    createdAtIso: '2026-10-11T10:00:00.000Z',
+  },
+  {
+    id: 'cat_seed_3',
+    ownerId: 'local_studio',
+    name: 'Decoração & Setup',
+    description: 'Suportes de headset, vasos geométricos, luminárias e organização de mesa.',
+    colorHex: '#10B981',
+    createdAtIso: '2026-10-12T10:00:00.000Z',
+  },
+  {
+    id: 'cat_seed_4',
+    ownerId: 'local_studio',
+    name: 'Chaveiros & Brindes',
+    description: 'Lotes corporativos, chaveiros personalizados em múltiplas cores e tags NFC.',
+    colorHex: '#F59E0B',
+    createdAtIso: '2026-10-13T10:00:00.000Z',
+  },
+];
 
 export const INITIAL_QUOTES: QuoteRecord[] = [
   {
@@ -363,6 +400,7 @@ export const INITIAL_PRODUCTS: ProductRecord[] = [
     profitMarginPercent: 85,
     stockQuantity: 15,
     description: 'Case técnico em PETG com vedação e encaixe para trilho DIN.',
+    imageUrl: createSvgProductPreviewDataUrl('PRD-IP65', '#1D63FF', '#0D0F14'),
     createdAtIso: '2026-10-15T12:00:00.000Z',
   },
   {
@@ -381,6 +419,7 @@ export const INITIAL_PRODUCTS: ProductRecord[] = [
     profitMarginPercent: 135,
     stockQuantity: 4,
     description: 'Resina ABS-Like 8K cinza grafite curada em UV com base texturizada.',
+    imageUrl: createSvgProductPreviewDataUrl('SLA-8K', '#7C3AED', '#1E1B4B'),
     createdAtIso: '2026-10-20T14:30:00.000Z',
   },
   {
@@ -399,6 +438,7 @@ export const INITIAL_PRODUCTS: ProductRecord[] = [
     profitMarginPercent: 100,
     stockQuantity: 8,
     description: 'Preenchimento 80% Gyroid para alta resistência ao torque.',
+    imageUrl: createSvgProductPreviewDataUrl('ENG-08', '#0284C7', '#0F172A'),
     createdAtIso: '2026-10-25T09:15:00.000Z',
   },
   {
@@ -417,6 +457,7 @@ export const INITIAL_PRODUCTS: ProductRecord[] = [
     profitMarginPercent: 145,
     stockQuantity: 12,
     description: 'PLA Silk Azul Royal ou Preto Matte sem necessidade de suportes.',
+    imageUrl: createSvgProductPreviewDataUrl('GAMER', '#10B981', '#064E3B'),
     createdAtIso: '2026-11-01T11:00:00.000Z',
   },
 ];

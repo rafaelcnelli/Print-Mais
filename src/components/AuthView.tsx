@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  PRINTMAIS_PLANS,
+  SubscriptionPlanId,
+} from '../utils/pricing';
+import {
+  ArrowLeft,
   ArrowRight,
   Box,
   CheckCircle2,
@@ -16,6 +21,7 @@ export interface AppAccount {
   displayName: string;
   email: string;
   mode: 'firebase' | 'local_account';
+  plan?: SubscriptionPlanId;
 }
 
 interface AuthViewProps {
@@ -28,8 +34,12 @@ interface AuthViewProps {
     name: string;
     email: string;
     password: string;
+    plan?: SubscriptionPlanId;
   }) => Promise<void>;
   externalError: string | null;
+  initialMode?: 'login' | 'register';
+  initialPlan?: SubscriptionPlanId;
+  onBackToLanding?: () => void;
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({
@@ -39,14 +49,26 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onGoogleLogin,
   onEmailAuth,
   externalError,
+  initialMode = 'login',
+  initialPlan = 'pro_annual',
+  onBackToLanding,
 }) => {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlanId>(initialPlan);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  useEffect(() => {
+    setSelectedPlan(initialPlan);
+  }, [initialPlan]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +101,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         name: name.trim(),
         email: trimmedEmail,
         password,
+        plan: selectedPlan,
       });
     } catch (err) {
       setLocalError(
@@ -93,34 +116,51 @@ export const AuthView: React.FC<AuthViewProps> = ({
     onLoginSuccess({
       uid: 'local_studio',
       displayName: 'Oficina Maker Pro',
-      email: 'contato@printgoals3d.com.br',
+      email: 'contato@printmais.com.br',
       mode: 'local_account',
+      plan: selectedPlan,
     });
   };
 
   const activeError = localError || externalError;
+  const activePlanDetails =
+    PRINTMAIS_PLANS.find((p) => p.id === selectedPlan) || PRINTMAIS_PLANS[2];
 
   return (
     <div className="min-h-screen bg-[#EEF0F4] dark:bg-[#0B0D13] text-slate-900 dark:text-slate-100 flex flex-col justify-between p-4 sm:p-6 lg:p-10 transition-colors">
       {/* Top Header */}
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-10 w-10 grid-cols-2 gap-0.5 rounded-2xl bg-[#1D63FF] p-2.5 text-white shadow-lg shadow-blue-600/30">
-            <span className="rounded-full bg-white" />
-            <span className="rounded-sm bg-white/70" />
-            <span className="rounded-sm bg-white/70" />
-            <span className="rounded-full bg-white" />
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {onBackToLanding && (
+            <button
+              type="button"
+              data-testid="auth-back-to-landing"
+              onClick={onBackToLanding}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] px-3.5 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Página Inicial & Planos</span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-10 w-10 grid-cols-2 gap-0.5 rounded-2xl bg-[#1D63FF] p-2.5 text-white shadow-lg shadow-blue-600/30">
+              <span className="rounded-full bg-white" />
+              <span className="rounded-sm bg-white/70" />
+              <span className="rounded-sm bg-white/70" />
+              <span className="rounded-full bg-white" />
+            </div>
+            <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0">
+              PrintMais
+            </span>
           </div>
-          <span className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            PrintGoals 3D
-          </span>
         </div>
 
         <button
           type="button"
           onClick={onToggleTheme}
           aria-label={isDark ? 'Ativar modo claro' : 'Ativar modo escuro'}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors cursor-pointer"
         >
           {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
@@ -140,7 +180,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
               Precifique suas impressões 3D com precisão cirúrgica.
             </h1>
             <p className="mt-4 text-sm text-slate-300 dark:text-blue-100 leading-relaxed">
-              Controle cada grama de filamento ou resina, consumo elétrico em kWh, depreciação de máquina, risco de falha e fluxo de caixa em sua conta individual.
+              Controle cada grama de filamento ou resina, consumo elétrico em kWh, depreciação de
+              máquina, risco de falha, produtos, orçamentos e fluxo de caixa em sua conta
+              individual.
             </p>
           </div>
 
@@ -148,9 +190,13 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <div className="flex items-start gap-3 rounded-2xl bg-white/10 dark:bg-slate-950/25 p-4">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400 dark:text-white" />
               <div>
-                <div className="text-sm font-bold">Anatomia Real do Custo (FDM & SLA)</div>
+                <div className="text-sm font-bold">
+                  Plano Selecionado: {activePlanDetails.name}
+                </div>
                 <div className="text-xs text-slate-300 dark:text-blue-100">
-                  Cálculo instantâneo de material, energia, amortização, mão de obra e ROI da impressora.
+                  {activePlanDetails.trialDays > 0
+                    ? `${activePlanDetails.trialDays} dias de teste grátis com todos os recursos liberados (R$ 0 hoje).`
+                    : 'Acesso gratuito à calculadora completa e ao fluxo inicial e básico.'}
                 </div>
               </div>
             </div>
@@ -160,7 +206,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
               <div>
                 <div className="text-sm font-bold">Conta Individual & Estoque de Bobinas</div>
                 <div className="text-xs text-slate-300 dark:text-blue-100">
-                  Cada usuário possui seus próprios orçamentos, carretéis e relatórios financeiros isolados.
+                  Cada usuário possui seus próprios produtos, orçamentos, carretéis e relatórios
+                  financeiros isolados.
                 </div>
               </div>
             </div>
@@ -184,7 +231,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 setMode('login');
                 setLocalError(null);
               }}
-              className={`rounded-xl py-2.5 text-xs font-extrabold transition-all ${
+              className={`rounded-xl py-2.5 text-xs font-extrabold transition-all cursor-pointer ${
                 mode === 'login'
                   ? 'bg-[#0D0F14] dark:bg-[#1D63FF] text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -198,7 +245,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 setMode('register');
                 setLocalError(null);
               }}
-              className={`rounded-xl py-2.5 text-xs font-extrabold transition-all ${
+              className={`rounded-xl py-2.5 text-xs font-extrabold transition-all cursor-pointer ${
                 mode === 'register'
                   ? 'bg-[#0D0F14] dark:bg-[#1D63FF] text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -212,14 +259,47 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
               {mode === 'login'
                 ? 'Acesse sua Oficina 3D'
-                : 'Cadastre sua Conta Profissional'}
+                : 'Cadastre sua Conta PrintMais'}
             </h2>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {mode === 'login'
                 ? 'Entre com seu e-mail e senha ou conecte sua conta Google.'
-                : 'Crie seu perfil exclusivo para salvar orçamentos, bobinas e fluxo de caixa.'}
+                : 'Escolha seu plano abaixo e crie seu perfil para salvar produtos, orçamentos e caixa.'}
             </p>
           </div>
+
+          {/* Plan Selector inside Register Mode */}
+          {mode === 'register' && (
+            <div className="mt-4">
+              <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Modalidade do Plano
+              </div>
+              <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {PRINTMAIS_PLANS.map((plan) => {
+                  const isActive = selectedPlan === plan.id;
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => setSelectedPlan(plan.id)}
+                      className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer ${
+                        isActive
+                          ? 'border-[#1D63FF] bg-blue-500/10 text-slate-900 dark:text-white'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] text-slate-600 dark:text-slate-400 hover:border-slate-400'
+                      }`}
+                    >
+                      <div className="text-xs font-extrabold">{plan.name}</div>
+                      <div className="mt-0.5 font-mono text-[11px] font-bold text-[#1D63FF] dark:text-blue-400">
+                        {plan.trialDays > 0
+                          ? `${plan.trialDays} dias grátis`
+                          : 'R$ 0 / mês'}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {activeError && (
             <div
@@ -318,10 +398,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1D63FF] px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-600 transition-colors disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1D63FF] px-5 py-3 text-sm font-extrabold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-600 transition-colors disabled:opacity-50 cursor-pointer"
             >
               <span>
-                {mode === 'login' ? 'Entrar na Minha Conta' : 'Concluir Cadastro e Entrar'}
+                {mode === 'login'
+                  ? 'Entrar na Minha Conta'
+                  : activePlanDetails.trialDays > 0
+                  ? `Ativar ${activePlanDetails.trialDays} Dias Grátis e Entrar`
+                  : 'Concluir Cadastro no Plano Grátis'}
               </span>
               <ArrowRight className="h-4 w-4" />
             </button>
@@ -339,15 +423,16 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <button
               type="button"
               onClick={onGoogleLogin}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 hover:border-[#1D63FF] transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-4 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 hover:border-[#1D63FF] transition-colors cursor-pointer"
             >
               <span>Entrar com Google</span>
             </button>
 
             <button
               type="button"
+              data-testid="auth-demo-account"
               onClick={handleDemoAccount}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-4 py-2.5 text-xs font-bold text-[#1D63FF] dark:text-blue-400 hover:border-[#1D63FF] transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-4 py-2.5 text-xs font-bold text-[#1D63FF] dark:text-blue-400 hover:border-[#1D63FF] transition-colors cursor-pointer"
             >
               <span>Explorar Conta Demo</span>
             </button>
@@ -356,7 +441,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
       </main>
 
       <footer className="mx-auto w-full max-w-6xl text-center text-xs text-slate-400">
-        PrintGoals 3D · Plataforma de Precificação, Estoque e Gestão Financeira para Impressão 3D
+        PrintMais · Plataforma de Precificação, Estoque e Gestão Financeira para Impressão 3D
       </footer>
     </div>
   );
