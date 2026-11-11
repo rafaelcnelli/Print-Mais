@@ -1263,31 +1263,15 @@ export default function App() {
             <p className="mt-1 text-xs text-slate-300 dark:text-blue-100">
               Cálculo exato de depreciação, kWh, falha e ROI da máquina.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                const lotePreset = CALCULATOR_PRESETS.find(
-                  (p) => p.id === 'lote_producao'
-                );
-                if (lotePreset) {
-                  setCalcParams((prev) => ({ ...prev, ...lotePreset.params }));
-                }
-                setActiveScreen('calculator');
-              }}
-              className="mt-4 inline-flex w-full items-center justify-between rounded-full bg-[#1D63FF] dark:bg-[#0D0F14] px-4 py-2.5 text-xs font-bold text-white hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
-            >
-              <span>Simular Lote 50 un</span>
-              <span>↗</span>
-            </button>
           </div>
         </aside>
 
         {/* MAIN VIEWPORT */}
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
           {/* TOP HEADER BAR (Compact on Mobile, Full Segmented Pills on Desktop) */}
-          <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-slate-200/80 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 backdrop-blur-md px-4 py-3 lg:px-6 lg:py-4">
+          <header className="sticky top-0 z-30 flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-200/80 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 backdrop-blur-md px-3 py-2.5 sm:px-6 sm:py-4 max-w-full">
             {/* Mobile Brand + Active Page Title */}
-            <div className="flex items-center gap-2.5 lg:hidden">
+            <div className="flex items-center gap-2 sm:gap-2.5 lg:hidden shrink-0">
               <div className="grid h-8 w-8 grid-cols-2 gap-0.5 rounded-xl bg-[#1D63FF] p-1.5 text-white">
                 <span className="rounded-full bg-white" />
                 <span className="rounded-sm bg-white/70" />
@@ -1295,10 +1279,10 @@ export default function App() {
                 <span className="rounded-full bg-white" />
               </div>
               <div>
-                <div className="text-sm font-extrabold leading-none text-slate-900 dark:text-white">
+                <div className="text-xs sm:text-sm font-extrabold leading-none text-slate-900 dark:text-white">
                   PrintMais
                 </div>
-                <div className="text-[11px] font-medium text-[#1D63FF]">
+                <div className="text-[10px] sm:text-[11px] font-medium text-[#1D63FF]">
                   {navItems.find((n) => n.id === activeScreen)?.shortLabel}
                 </div>
               </div>
@@ -1323,7 +1307,7 @@ export default function App() {
             </div>
 
             {/* Right Controls: PWA Install, Theme Toggle, Mobile Menu Drawer & User Account / Logout */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <PWAInstallButton variant="header" />
 
               <button
@@ -1332,12 +1316,12 @@ export default function App() {
                 aria-label={
                   isDark ? 'Alternar para modo claro' : 'Alternar para modo escuro'
                 }
-                className="inline-flex h-9 w-9 lg:h-10 lg:w-10 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#181C26] text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors"
+                className="inline-flex h-8 w-8 sm:h-9 sm:w-9 lg:h-10 lg:w-10 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#181C26] text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors"
               >
                 {isDark ? (
-                  <Sun className="h-4 w-4" />
+                  <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 ) : (
-                  <Moon className="h-4 w-4" />
+                  <Moon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 )}
               </button>
 
@@ -1347,13 +1331,14 @@ export default function App() {
                 onClick={() => setIsMobileDrawerOpen(true)}
                 aria-label="Abrir menu lateral mobile"
                 title="Abrir menu lateral"
-                className="inline-flex lg:hidden h-9 w-9 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#181C26] text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors"
+                className="inline-flex lg:hidden h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-[#181C26] text-slate-700 dark:text-slate-200 hover:border-[#1D63FF] transition-colors"
               >
-                <Menu className="h-4 w-4" />
+                <Menu className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
 
-              <div className="flex items-center gap-2.5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#181C26] pl-3 pr-1.5 py-1">
-                <div className="hidden sm:block text-right">
+              {/* Desktop User Account Pill */}
+              <div className="hidden sm:flex items-center gap-2.5 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#181C26] pl-3 pr-1.5 py-1">
+                <div className="text-right">
                   <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
                     {account.displayName}
                   </div>
@@ -1366,7 +1351,7 @@ export default function App() {
                   onClick={() => setIsLogoutModalOpen(true)}
                   aria-label="Sair da conta"
                   title="Sair da conta"
-                  className="inline-flex h-8 px-2.5 items-center justify-center gap-1 rounded-full bg-slate-200 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-rose-500 hover:text-white transition-colors"
+                  className="inline-flex h-8 px-2.5 items-center justify-center gap-1 rounded-full bg-slate-200 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-rose-500 hover:text-white transition-colors cursor-pointer"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   <span className="hidden md:inline">Sair</span>
@@ -1528,15 +1513,6 @@ export default function App() {
         isDark={isDark}
         onToggleTheme={() => setIsDark(!isDark)}
         onRequestLogout={() => setIsLogoutModalOpen(true)}
-        onSimulateLot={() => {
-          const lotePreset = CALCULATOR_PRESETS.find(
-            (p) => p.id === 'lote_producao'
-          );
-          if (lotePreset) {
-            setCalcParams((prev) => ({ ...prev, ...lotePreset.params }));
-          }
-          setActiveScreen('calculator');
-        }}
       />
 
       {/* CONFIRM LOGOUT MODAL */}

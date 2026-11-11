@@ -459,16 +459,16 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
     <section
       id="workspace-produtos-vendas"
       aria-label="Catálogo de Produtos Criados e Registro de Vendas"
-      className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-6 shadow-sm"
+      className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-4 sm:p-6 shadow-sm overflow-hidden"
     >
       {/* Top Header of the Product & Sales Workspace */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/70 dark:border-slate-800 pb-5">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0D0F14] dark:bg-[#1D63FF] text-white shadow-md">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0D0F14] dark:bg-[#1D63FF] text-white shadow-md shrink-0">
             <ShoppingBag className="h-5 w-5" />
           </span>
-          <div>
-            <h2 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
               Meus Produtos Criados & Registro de Vendas
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -478,7 +478,7 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
         </div>
 
         {/* Action & Tab Bar */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 max-w-full">
           <button
             type="button"
             data-testid="btn-open-create-product"
@@ -489,7 +489,7 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
             Criar Produto da Calculadora
           </button>
 
-          <div className="flex items-center gap-1 rounded-full bg-slate-100 dark:bg-[#0D0F14] p-1">
+          <div className="flex items-center gap-1 rounded-2xl sm:rounded-full bg-slate-100 dark:bg-[#0D0F14] p-1 overflow-x-auto max-w-full">
             <button
               type="button"
               data-testid="tab-catalog"
