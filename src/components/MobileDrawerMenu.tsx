@@ -14,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { AppAccount } from './AuthView';
+import { PWAInstallButton } from './PWAInstallButton';
 import { formatCurrencyBRL, PRINTMAIS_PLANS } from '../utils/pricing';
 
 export type ActiveScreen =
@@ -287,8 +288,10 @@ export const MobileDrawerMenu: React.FC<MobileDrawerMenuProps> = ({
           )}
         </div>
 
-        {/* Bottom Actions: Theme Switcher & Logout */}
+        {/* Bottom Actions: PWA Install, Theme Switcher & Logout */}
         <div className="mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-2">
+          <PWAInstallButton variant="drawer" />
+
           {/* Theme Switcher */}
           <button
             type="button"

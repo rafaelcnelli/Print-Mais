@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="pm-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1D63FF"/>
+      <stop offset="100%" stop-color="#0B3CC1"/>
+    </linearGradient>
+    <linearGradient id="filament-glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.3"/>
+    </linearGradient>
+    <filter id="text-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background squircle -->
+  <rect width="512" height="512" rx="112" fill="url(#pm-grad)"/>
+
+  <!-- Subtle 3D printer bed grid lines -->
+  <g opacity="0.08" stroke="#FFFFFF" stroke-width="2.5">
+    <line x1="80" y1="120" x2="432" y2="120"/>
+    <line x1="80" y1="256" x2="432" y2="256"/>
+    <line x1="80" y1="392" x2="432" y2="392"/>
+    <line x1="120" y1="80" x2="120" y2="432"/>
+    <line x1="256" y1="80" x2="256" y2="432"/>
+    <line x1="392" y1="80" x2="392" y2="432"/>
+  </g>
+
+  <!-- Top: "Print" -->
+  <text
+    x="256"
+    y="218"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    font-weight="900"
+    font-size="116"
+    fill="#FFFFFF"
+    letter-spacing="2"
+    filter="url(#text-shadow)"
+  >Print</text>
+
+  <!-- Divider filament layer line with nozzle dot -->
+  <rect x="146" y="258" width="220" height="8" rx="4" fill="url(#filament-glow)"/>
+  <circle cx="256" cy="262" r="6" fill="#38BDF8"/>
+
+  <!-- Bottom: "Mais" -->
+  <text
+    x="256"
+    y="375"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    font-weight="900"
+    font-size="124"
+    fill="#38BDF8"
+    letter-spacing="4"
+    filter="url(#text-shadow)"
+  >Mais</text>
+</svg>

@@ -66,6 +66,8 @@ import { InventoryView } from './components/InventoryView';
 import { ReportsDashboardView } from './components/ReportsDashboardView';
 import { ConfirmLogoutModal } from './components/ConfirmLogoutModal';
 import { MobileDrawerMenu } from './components/MobileDrawerMenu';
+import { PWAInstallButton } from './components/PWAInstallButton';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import {
   BarChart3,
   Box,
@@ -1320,8 +1322,10 @@ export default function App() {
               ))}
             </div>
 
-            {/* Right Controls: Theme Toggle, Mobile Menu Drawer & User Account / Logout */}
+            {/* Right Controls: PWA Install, Theme Toggle, Mobile Menu Drawer & User Account / Logout */}
             <div className="flex items-center gap-2">
+              <PWAInstallButton variant="header" />
+
               <button
                 type="button"
                 onClick={() => setIsDark(!isDark)}
@@ -1545,6 +1549,9 @@ export default function App() {
         }}
         onCancel={() => setIsLogoutModalOpen(false)}
       />
+
+      {/* PWA OFFLINE INDICATOR */}
+      <OfflineIndicator />
     </div>
   );
 }

@@ -30,6 +30,8 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
+import { OfflineIndicator } from './OfflineIndicator';
 
 interface LandingPageViewProps {
   isDark: boolean;
@@ -164,8 +166,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </button>
           </nav>
 
-          {/* Zone 3: Top Buttons — Planos & Entrar */}
+          {/* Zone 3: Top Buttons — Instalar App, Planos & Entrar */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            <PWAInstallButton variant="header" />
+
             <button
               type="button"
               onClick={onToggleTheme}
@@ -196,6 +200,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           </div>
         </div>
       </header>
+      <OfflineIndicator />
 
       <main id="topo" className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-10 lg:py-12 space-y-16 lg:space-y-24">
         {/* SECTION 1: HERO PROPOSITION */}

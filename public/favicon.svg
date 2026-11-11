@@ -1,17 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="pm-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+    <linearGradient id="pm-fav-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#1D63FF" />
-      <stop offset="100%" stop-color="#0F46C7" />
+      <stop offset="100%" stop-color="#0B3CC1" />
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="16" fill="url(#pm-bg)" />
-  <!-- Top-left node (circle) -->
-  <circle cx="21" cy="21" r="7.5" fill="#FFFFFF" />
-  <!-- Top-right node (plus symbol for PrintMais) -->
-  <path d="M43 13.5V28.5M35.5 21H50.5" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" />
-  <!-- Bottom-left node (rounded cube) -->
-  <rect x="13.5" y="35.5" width="15" height="15" rx="4" fill="#FFFFFF" fill-opacity="0.78" />
-  <!-- Bottom-right node (circle) -->
-  <circle cx="43" cy="43" r="7.5" fill="#FFFFFF" />
+  <rect width="64" height="64" rx="14" fill="url(#pm-fav-grad)" />
+  <text
+    x="32"
+    y="28"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, sans-serif"
+    font-weight="900"
+    font-size="15"
+    fill="#FFFFFF"
+    letter-spacing="0.5"
+  >Print</text>
+  <rect x="18" y="32" width="28" height="2" rx="1" fill="#38BDF8" opacity="0.8" />
+  <text
+    x="32"
+    y="49"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, sans-serif"
+    font-weight="900"
+    font-size="16"
+    fill="#38BDF8"
+    letter-spacing="0.5"
+  >Mais</text>
 </svg>
