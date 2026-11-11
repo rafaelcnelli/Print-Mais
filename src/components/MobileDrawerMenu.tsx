@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import {
   BarChart3,
-  Box,
   Calculator,
   ChevronRight,
   Disc,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react';
 import { AppAccount } from './AuthView';
 import { formatCurrencyBRL, PRINTMAIS_PLANS } from '../utils/pricing';
+import { PWAInstallButton } from './PWAInstallButton';
 
 export type ActiveScreen =
   | 'calculator'
@@ -37,7 +37,6 @@ interface MobileDrawerMenuProps {
   isDark: boolean;
   onToggleTheme: () => void;
   onRequestLogout: () => void;
-  onSimulateLot?: () => void;
 }
 
 export const MobileDrawerMenu: React.FC<MobileDrawerMenuProps> = ({
@@ -53,7 +52,6 @@ export const MobileDrawerMenu: React.FC<MobileDrawerMenuProps> = ({
   isDark,
   onToggleTheme,
   onRequestLogout,
-  onSimulateLot,
 }) => {
   // Prevent body scroll when drawer is open
   useEffect(() => {
@@ -264,27 +262,9 @@ export const MobileDrawerMenu: React.FC<MobileDrawerMenuProps> = ({
             })}
           </nav>
 
-          {/* Quick Simulation Lot Action */}
-          {onSimulateLot && (
-            <div className="mt-4 rounded-2xl bg-[#0D0F14] dark:bg-[#1D63FF] p-3.5 text-white">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Box className="h-4 w-4" />
-                  <span className="text-xs font-extrabold">Simular Lote 50 un</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onSimulateLot();
-                    onClose();
-                  }}
-                  className="rounded-full bg-white px-3 py-1 text-[11px] font-extrabold text-[#1D63FF] hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  Abrir ↗
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="mt-4">
+            <PWAInstallButton variant="mobile-drawer" />
+          </div>
         </div>
 
         {/* Bottom Actions: Theme Switcher & Logout */}

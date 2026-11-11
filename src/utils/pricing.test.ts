@@ -268,6 +268,28 @@ test('ConfirmLogoutModal and MobileDrawerMenu are exported components', async ()
   assert.equal(typeof MobileDrawerMenu, 'function');
 });
 
+test('PWA configuration and icons are present with Print and Mais', async () => {
+  const { PWAInstallButton } = await import('../components/PWAInstallButton');
+  const { OfflineIndicator } = await import('../components/OfflineIndicator');
+  const fs = await import('fs');
+
+  assert.equal(typeof PWAInstallButton, 'function');
+  assert.equal(typeof OfflineIndicator, 'function');
+
+  // Check generated PWA icons exist
+  assert.ok(fs.existsSync('public/pwa-192x192.png'));
+  assert.ok(fs.existsSync('public/pwa-512x512.png'));
+  assert.ok(fs.existsSync('public/pwa-maskable-512x512.png'));
+  assert.ok(fs.existsSync('public/apple-touch-icon.png'));
+  assert.ok(fs.existsSync('public/favicon.svg'));
+
+  // Check SVG content includes Print and Mais
+  const favSvg = fs.readFileSync('public/favicon.svg', 'utf8');
+  assert.ok(favSvg.includes('Print'));
+  assert.ok(favSvg.includes('Mais'));
+});
+
+
 
 
 
