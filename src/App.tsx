@@ -40,6 +40,8 @@ import {
 import {
   CalculatorParams,
   ExtraSupplyRecord,
+  ImportedMarketplaceOrderRow,
+  MarketplaceIntegrationsConfig,
   ProductCategoryRecord,
   ProductRecord,
   QuoteRecord,
@@ -53,6 +55,7 @@ import {
   PRINTMAIS_PLANS,
   SubscriptionPlanId,
 } from './utils/pricing';
+import { DEFAULT_MARKETPLACE_INTEGRATIONS } from './utils/marketplaceHub';
 import {
   INITIAL_CATEGORIES,
   INITIAL_EXTRA_SUPPLIES,
@@ -69,6 +72,7 @@ import { ProductsCatalogView } from './components/ProductsCatalogView';
 import { CloseOrderDetails, OrdersView } from './components/OrdersView';
 import { CashFlowView } from './components/CashFlowView';
 import { InventoryView } from './components/InventoryView';
+import { MarketplaceHubView } from './components/MarketplaceHubView';
 import { ReportsDashboardView } from './components/ReportsDashboardView';
 import { ConfirmLogoutModal } from './components/ConfirmLogoutModal';
 import { MobileDrawerMenu } from './components/MobileDrawerMenu';
@@ -80,6 +84,7 @@ import {
   Calculator,
   Disc,
   FolderKanban,
+  Link2,
   LogOut,
   Menu,
   Moon,
@@ -94,6 +99,7 @@ type ActiveScreen =
   | 'orders'
   | 'cashflow'
   | 'inventory'
+  | 'integrations'
   | 'reports';
 
 const STORAGE_KEYS = {
@@ -164,6 +170,8 @@ export default function App() {
     useState<ProductCategoryRecord[]>(INITIAL_CATEGORIES);
   const [sales, setSales] = useState<SaleRecord[]>(INITIAL_SALES);
   const [extraSupplies, setExtraSupplies] = useState<ExtraSupplyRecord[]>(INITIAL_EXTRA_SUPPLIES);
+  const [marketplaceIntegrations, setMarketplaceIntegrations] =
+    useState<MarketplaceIntegrationsConfig>(DEFAULT_MARKETPLACE_INTEGRATIONS);
 
   // Calculator parameters state
   const [calcParams, setCalcParams] = useState<CalculatorParams>({
@@ -218,6 +226,17 @@ export default function App() {
       setCategories(INITIAL_CATEGORIES);
     }
 
+    try {
+      const mpRaw = localStorage.getItem(
+        getScopedKey('3dpm_mp_integrations', account.uid)
+      );
+      setMarketplaceIntegrations(
+        mpRaw ? JSON.parse(mpRaw) : DEFAULT_MARKETPLACE_INTEGRATIONS
+      );
+    } catch {
+      setMarketplaceIntegrations(DEFAULT_MARKETPLACE_INTEGRATIONS);
+    }
+
     if (account.mode === 'local_account') {
       try {
         const qRaw = localStorage.getItem(getScopedKey('3dpm_quotes', account.uid));
@@ -252,6 +271,16 @@ export default function App() {
       );
     }
   }, [categories, account]);
+
+  // Persist marketplace integrations for both local and Firebase accounts
+  useEffect(() => {
+    if (account) {
+      localStorage.setItem(
+        getScopedKey('3dpm_mp_integrations', account.uid),
+        JSON.stringify(marketplaceIntegrations)
+      );
+    }
+  }, [marketplaceIntegrations, account]);
 
   // Persist extra supplies for both local and Firebase accounts
   useEffect(() => {
@@ -987,6 +1016,212 @@ export default function App() {
     }
   };
 
+  // Handler for Importing & Reconciling Marketplace Sales (Mercado Livre & Shopee)
+  const handleImportMarketplaceOrders = async (
+    ordersToImport: ImportedMarketplaceOrderRow[]
+  ): Promise<{
+    importedCount: number;
+    totalNetAdded: number;
+    totalGramsDeducted: number;
+    totalExtraSuppliesDeducted: number;
+  }> => {
+    if (!account || ordersToImport.length === 0) {
+      return {
+        importedCount: 0,
+        totalNetAdded: 0,
+        totalGramsDeducted: 0,
+        totalExtraSuppliesDeducted: 0,
+      };
+    }
+
+    const newSalesBatch: SaleRecord[] = [];
+    const newTxBatch: TransactionRecord[] = [];
+    const productStockUpdates = new Map<string, number>();
+    const spoolGramDeductions = new Map<string, number>();
+    const extraSupplyDeductions = new Map<string, number>();
+    let totalNetAdded = 0;
+    let totalGramsDeducted = 0;
+    let totalExtraSuppliesDeducted = 0;
+
+    ordersToImport.forEach((row, index) => {
+      const matchedProduct = row.matchedProductId
+        ? products.find((p) => p.id === row.matchedProductId)
+        : undefined;
+
+      const unitCost = matchedProduct
+        ? matchedProduct.unitCost
+        : Math.round(row.netAmount * 0.45 * 100) / 100 / Math.max(1, row.quantity);
+      const totalCost = Math.round(unitCost * row.quantity * 100) / 100;
+      const netProfit = Math.round((row.netAmount - totalCost) * 100) / 100;
+      const weightGrams = matchedProduct ? matchedProduct.weightGrams : 60;
+      const totalWeightGrams = Math.round(weightGrams * row.quantity);
+      const totalFee = Math.round((row.marketplaceFee + row.shippingFee) * 100) / 100;
+
+      totalNetAdded += row.netAmount;
+
+      const ts = Date.now() + index;
+      const saleId = `sale_mp_${ts}`;
+      const txId = `tx_mp_${ts}`;
+      const channelLabel = row.channel === 'Shopee' ? 'Venda Shopee' : 'Venda Mercado Livre';
+      const resolvedTitle = matchedProduct?.name || row.externalProductTitle || 'Peça Impressa 3D';
+
+      const saleItem = {
+        productId: matchedProduct?.id || `mp_${row.sku}`,
+        productName: resolvedTitle,
+        sku: matchedProduct?.sku || row.sku,
+        quantity: row.quantity,
+        unitCost,
+        unitPrice: Math.round((row.grossAmount / Math.max(1, row.quantity)) * 100) / 100,
+        weightGrams,
+      };
+
+      const newSale: SaleRecord = {
+        id: saleId,
+        ownerId: account.uid,
+        clientName:
+          row.buyerName ||
+          `Cliente ${row.channel === 'Shopee' ? 'Shopee' : 'Mercado Livre'} (${row.externalOrderId})`,
+        clientContact: row.externalOrderId,
+        saleDate: row.dateIso,
+        saleTime: row.timeStr || '12:00',
+        paymentMethod: 'Cartao_Credito',
+        salesChannel: row.channel,
+        productName: resolvedTitle,
+        itemsSummary: JSON.stringify([saleItem]),
+        items: [saleItem],
+        totalQuantity: row.quantity,
+        subtotalAmount: row.grossAmount,
+        discountAmount: 0,
+        shippingAmount: row.shippingFee,
+        totalAmount: row.netAmount,
+        grossAmount: row.grossAmount,
+        marketplaceFeeAmount: totalFee,
+        externalOrderId: row.externalOrderId,
+        totalCost,
+        netProfit,
+        totalWeightGrams,
+        transactionId: txId,
+        notes: `${channelLabel} #${row.externalOrderId} · Bruto: ${formatCurrencyBRL(row.grossAmount)} · Taxas/Frete: -${formatCurrencyBRL(totalFee)} · Líquido: ${formatCurrencyBRL(row.netAmount)}`,
+        status: 'concluida',
+        createdAtIso: new Date().toISOString(),
+      };
+
+      const newTx: TransactionRecord = {
+        id: txId,
+        ownerId: account.uid,
+        title: `${channelLabel}: ${resolvedTitle} (#${row.externalOrderId})`,
+        type: 'income',
+        category: row.quantity >= 10 ? 'encomenda_lote' : 'venda_direta',
+        amount: row.netAmount,
+        grossAmount: row.grossAmount,
+        marketplaceFeeAmount: totalFee,
+        externalOrderId: row.externalOrderId,
+        dateIso: row.dateIso,
+        saleId,
+        saleTime: row.timeStr || '12:00',
+        clientName: newSale.clientName,
+        paymentMethod: 'Cartao_Credito',
+        salesChannel: row.channel,
+        notes: `Conciliação ${channelLabel} (#${row.externalOrderId}) · Valor Bruto: ${formatCurrencyBRL(row.grossAmount)} · Taxas Marketplace: -${formatCurrencyBRL(totalFee)} · Lucro Líquido Real: +${formatCurrencyBRL(netProfit)}`,
+        createdAtIso: new Date().toISOString(),
+      };
+
+      newSalesBatch.push(newSale);
+      newTxBatch.push(newTx);
+
+      if (matchedProduct) {
+        productStockUpdates.set(
+          matchedProduct.id,
+          (productStockUpdates.get(matchedProduct.id) || 0) + row.quantity
+        );
+
+        // Find matching spool by technology (SLA_Resina -> Resina_*, FDM -> non-resin)
+        const targetSpool =
+          spools.find((s) =>
+            matchedProduct.technology === 'SLA_Resina'
+              ? s.materialType.startsWith('Resina')
+              : !s.materialType.startsWith('Resina')
+          ) || spools[0];
+
+        if (targetSpool && totalWeightGrams > 0) {
+          spoolGramDeductions.set(
+            targetSpool.id,
+            (spoolGramDeductions.get(targetSpool.id) || 0) + totalWeightGrams
+          );
+          totalGramsDeducted += totalWeightGrams;
+        }
+
+        if (matchedProduct.extraSupplies && matchedProduct.extraSupplies.length > 0) {
+          matchedProduct.extraSupplies.forEach((extra) => {
+            const units = extra.quantity * row.quantity;
+            extraSupplyDeductions.set(
+              extra.supplyId,
+              (extraSupplyDeductions.get(extra.supplyId) || 0) + units
+            );
+            totalExtraSuppliesDeducted += units;
+          });
+        }
+      }
+    });
+
+    if (canUseCloudFirestore) {
+      for (const s of newSalesBatch) {
+        await saveSaleToFirestore(s);
+      }
+      for (const tx of newTxBatch) {
+        await saveTransactionToFirestore(tx);
+      }
+    } else {
+      setSales((prev) => [...newSalesBatch, ...prev]);
+      setTransactions((prev) => [...newTxBatch, ...prev]);
+    }
+
+    // Apply product stock deductions
+    for (const [prodId, qtyToDeduct] of productStockUpdates.entries()) {
+      const targetProd = products.find((p) => p.id === prodId);
+      if (targetProd) {
+        const nextStock = Math.max(0, targetProd.stockQuantity - qtyToDeduct);
+        if (canUseCloudFirestore) {
+          await updateProductStockInFirestore(prodId, nextStock);
+        } else {
+          setProducts((prev) =>
+            prev.map((p) =>
+              p.id === prodId ? { ...p, stockQuantity: nextStock } : p
+            )
+          );
+        }
+      }
+    }
+
+    // Apply spool filament/resin gram deductions
+    for (const [spoolId, gramsToDeduct] of spoolGramDeductions.entries()) {
+      const targetSpool = spools.find((s) => s.id === spoolId);
+      if (targetSpool) {
+        const nextGrams = Math.max(
+          0,
+          targetSpool.remainingWeightGrams - gramsToDeduct
+        );
+        await handleUpdateSpoolWeight(spoolId, nextGrams);
+      }
+    }
+
+    // Apply extra supplies deductions
+    for (const [supplyId, unitsToDeduct] of extraSupplyDeductions.entries()) {
+      const targetSupply = extraSupplies.find((s) => s.id === supplyId);
+      if (targetSupply) {
+        const nextStock = Math.max(0, targetSupply.estoqueAtual - unitsToDeduct);
+        await handleUpdateExtraSupplyStock(supplyId, nextStock);
+      }
+    }
+
+    return {
+      importedCount: ordersToImport.length,
+      totalNetAdded: Math.round(totalNetAdded * 100) / 100,
+      totalGramsDeducted: Math.round(totalGramsDeducted),
+      totalExtraSuppliesDeducted: Math.round(totalExtraSuppliesDeducted),
+    };
+  };
+
   // Handlers for Cash Flow Transactions
   const handleAddTransaction = async (
     txInput: Omit<TransactionRecord, 'id' | 'ownerId' | 'createdAtIso'>
@@ -1269,6 +1504,12 @@ export default function App() {
       icon: Disc,
     },
     {
+      id: 'integrations',
+      label: '🔗 Integrações (ML & Shopee)',
+      shortLabel: 'Integrações',
+      icon: Link2,
+    },
+    {
       id: 'reports',
       label: 'Dashboard & Relatórios',
       shortLabel: 'Dashboard',
@@ -1517,6 +1758,7 @@ export default function App() {
               <ProductsCatalogView
                 products={products}
                 categories={categories}
+                integrations={marketplaceIntegrations}
                 onCreateProduct={handleCreateProduct}
                 onUpdateProduct={handleUpdateProduct}
                 onDeleteProduct={handleDeleteProduct}
@@ -1568,15 +1810,33 @@ export default function App() {
               />
             )}
 
+            {activeScreen === 'integrations' && (
+              <MarketplaceHubView
+                integrations={marketplaceIntegrations}
+                onUpdateIntegrations={setMarketplaceIntegrations}
+                products={products}
+                spools={spools}
+                extraSupplies={extraSupplies}
+                sales={sales}
+                onUpdateProduct={handleUpdateProduct}
+                onImportMarketplaceOrders={handleImportMarketplaceOrders}
+                onNavigateToCashflow={() => setActiveScreen('cashflow')}
+                onNavigateToProducts={() => setActiveScreen('products')}
+                onNavigateToReports={() => setActiveScreen('reports')}
+              />
+            )}
+
             {activeScreen === 'reports' && (
               <ReportsDashboardView
                 quotes={quotes}
                 transactions={transactions}
                 spools={spools}
+                sales={sales}
                 onNavigateToCalculator={() => setActiveScreen('calculator')}
                 onNavigateToCashflow={() => setActiveScreen('cashflow')}
                 onNavigateToOrders={() => setActiveScreen('orders')}
                 onNavigateToInventory={() => setActiveScreen('inventory')}
+                onNavigateToIntegrations={() => setActiveScreen('integrations')}
               />
             )}
           </main>

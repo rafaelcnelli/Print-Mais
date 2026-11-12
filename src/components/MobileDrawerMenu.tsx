@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Disc,
   FolderKanban,
+  Link2,
   LogOut,
   Moon,
   Sun,
@@ -23,6 +24,7 @@ export type ActiveScreen =
   | 'orders'
   | 'cashflow'
   | 'inventory'
+  | 'integrations'
   | 'reports';
 
 interface MobileDrawerMenuProps {
@@ -106,6 +108,13 @@ export const MobileDrawerMenu: React.FC<MobileDrawerMenuProps> = ({
       description: 'Controle em gramas e alerta de reposição',
       icon: Disc,
       badge: `${spoolsCount} materiais`,
+    },
+    {
+      id: 'integrations' as ActiveScreen,
+      label: '🔗 Integrações (ML & Shopee)',
+      description: 'API Oficial, conciliação CSV e gerador de anúncios',
+      icon: Link2,
+      badge: 'Híbrido',
     },
     {
       id: 'reports' as ActiveScreen,

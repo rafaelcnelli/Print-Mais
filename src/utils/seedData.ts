@@ -483,6 +483,10 @@ export const INITIAL_PRODUCTS: ProductRecord[] = [
     arquivo3dFormato: '.3mf',
     arquivo3dTamanho: '4.2 MB',
     arquivo3dUrl: 'data:application/octet-stream;charset=utf-8,PrintMais3DModelPackage',
+    marketplaceItemId: 'MLB394810293',
+    mlItemId: 'MLB394810293',
+    shopeeItemId: 'SHP883920112',
+    publishedChannels: ['Mercado_Livre', 'Shopee'],
     marketplacePrices: {
       shopee: {
         platform: 'shopee',
@@ -577,6 +581,9 @@ export const INITIAL_PRODUCTS: ProductRecord[] = [
     arquivo3dFormato: '.stl',
     arquivo3dTamanho: '6.8 MB',
     arquivo3dUrl: 'data:application/octet-stream;charset=utf-8,solid%20stl_model_header',
+    marketplaceItemId: 'SHP774129801',
+    shopeeItemId: 'SHP774129801',
+    publishedChannels: ['Shopee'],
     marketplacePrices: {
       shopee: {
         platform: 'shopee',
@@ -585,6 +592,15 @@ export const INITIAL_PRODUCTS: ProductRecord[] = [
         fixedFee: 4.0,
         listingPrice: 86.13,
         feeAmount: 21.23,
+        netReceived: 64.9,
+      },
+      mercadoLivre: {
+        platform: 'mercadoLivre',
+        platformName: 'Mercado Livre',
+        commissionPercent: 16,
+        fixedFee: 6.0,
+        listingPrice: 84.4,
+        feeAmount: 19.5,
         netReceived: 64.9,
       },
     },

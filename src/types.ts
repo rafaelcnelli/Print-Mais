@@ -110,6 +110,58 @@ export interface MarketplacePriceSummary {
   [key: string]: any;
 }
 
+export type MarketplaceConnectionStatus =
+  | 'disconnected'
+  | 'spreadsheet_manual'
+  | 'api_connected';
+
+export interface MercadoLivreApiConfig {
+  status: MarketplaceConnectionStatus;
+  appId: string;
+  secretKey: string;
+  accessToken: string;
+  sellerId: string;
+  nickname?: string;
+  commissionPercent: number;
+  fixedFee: number;
+  lastSyncIso?: string;
+}
+
+export interface ShopeeApiConfig {
+  status: MarketplaceConnectionStatus;
+  partnerId: string;
+  shopId: string;
+  partnerKey: string;
+  accessToken: string;
+  shopName?: string;
+  commissionPercent: number;
+  fixedFee: number;
+  lastSyncIso?: string;
+}
+
+export interface MarketplaceIntegrationsConfig {
+  mercadoLivre: MercadoLivreApiConfig;
+  shopee: ShopeeApiConfig;
+}
+
+export interface ImportedMarketplaceOrderRow {
+  id: string;
+  externalOrderId: string;
+  dateIso: string;
+  timeStr: string;
+  channel: 'Mercado_Livre' | 'Shopee';
+  externalProductTitle: string;
+  sku: string;
+  quantity: number;
+  grossAmount: number;
+  marketplaceFee: number;
+  shippingFee: number;
+  netAmount: number;
+  buyerName: string;
+  matchedProductId: string;
+  selected: boolean;
+}
+
 export interface CalculatorParams {
   clientName: string;
   projectName: string;
@@ -202,12 +254,15 @@ export interface TransactionRecord {
   dateIso: string;
   notes: string;
   createdAtIso: string;
-  // Optional client-side metadata for richer Cash Flow display
+  // Optional client-side metadata for richer Cash Flow & Marketplace display
   saleId?: string;
   saleTime?: string;
   clientName?: string;
   paymentMethod?: PaymentMethod;
   salesChannel?: SalesChannel;
+  externalOrderId?: string;
+  grossAmount?: number;
+  marketplaceFeeAmount?: number;
 }
 
 export interface SpoolRecord {
@@ -256,6 +311,13 @@ export interface ProductRecord {
   extraSupplies?: ExtraSupplyUsage[];
   // Preços sugeridos de marketplace
   marketplacePrices?: MarketplacePriceSummary;
+  // Publicação / Vínculo em Marketplaces
+  marketplaceItemId?: string;
+  mlItemId?: string;
+  mlPublishedAtIso?: string;
+  shopeeItemId?: string;
+  shopeePublishedAtIso?: string;
+  publishedChannels?: ('Mercado_Livre' | 'Shopee')[];
   // Arquivo 3D anexado
   arquivo3dUrl?: string;
   arquivo3dNome?: string;
@@ -298,6 +360,9 @@ export interface SaleRecord {
   transactionId: string;
   notes: string;
   status: 'concluida' | 'pendente';
+  externalOrderId?: string;
+  grossAmount?: number;
+  marketplaceFeeAmount?: number;
   createdAtIso: string;
 }
 

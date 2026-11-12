@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { QuoteRecord, SpoolRecord, TransactionRecord } from '../types';
+import { QuoteRecord, SaleRecord, SpoolRecord, TransactionRecord } from '../types';
 import {
   calculate3DPrintPricing,
   calculateBreakeven,
@@ -7,6 +7,7 @@ import {
   formatCurrencyBRL,
   simulateFarmExpansion,
 } from '../utils/pricing';
+import { computeSalesByChannelSummary } from '../utils/marketplaceHub';
 import {
   Activity,
   ArrowDownRight,
@@ -14,6 +15,7 @@ import {
   Cpu,
   Gauge,
   Layers,
+  Link2,
   Sliders,
   TrendingUp,
 } from 'lucide-react';
@@ -23,10 +25,12 @@ interface ReportsDashboardViewProps {
   quotes: QuoteRecord[];
   transactions: TransactionRecord[];
   spools: SpoolRecord[];
+  sales?: SaleRecord[];
   onNavigateToCalculator: () => void;
   onNavigateToCashflow: () => void;
   onNavigateToOrders?: () => void;
   onNavigateToInventory?: () => void;
+  onNavigateToIntegrations?: () => void;
 }
 
 function formatCompactBRL(value: number): string {
@@ -43,10 +47,12 @@ export const ReportsDashboardView: React.FC<ReportsDashboardViewProps> = ({
   quotes,
   transactions,
   spools,
+  sales = [],
   onNavigateToCalculator,
   onNavigateToCashflow,
   onNavigateToOrders,
   onNavigateToInventory,
+  onNavigateToIntegrations,
 }) => {
   // Interactive state for Breakeven & Farm Expansion Simulator
   const [fixedMonthlyCosts, setFixedMonthlyCosts] = useState<number>(1450);
@@ -58,6 +64,11 @@ export const ReportsDashboardView: React.FC<ReportsDashboardViewProps> = ({
   const summary = useMemo(
     () => computeDashboardSummary(transactions, quotes, 720),
     [transactions, quotes]
+  );
+
+  const channelSummary = useMemo(
+    () => computeSalesByChannelSummary(sales, transactions),
+    [sales, transactions]
   );
 
   // Aggregate cost distribution across saved quotes (Material vs Energy vs Depreciation vs Labor)
@@ -304,6 +315,135 @@ export const ReportsDashboardView: React.FC<ReportsDashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* VENDAS POR CANAL (Venda Direta / WhatsApp vs. Shopee vs. Mercado Livre) */}
+      <section
+        aria-label="Vendas por Canal: Venda Direta vs. Shopee vs. Mercado Livre"
+        data-testid="dashboard-sales-by-channel"
+        className="rounded-3xl border border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#14171F] p-6 shadow-sm"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/70 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#1D63FF]/10 text-[#1D63FF]">
+              <Link2 className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                Vendas por Canal (Venda Direta vs. Shopee vs. Mercado Livre)
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Comparativo de Faturamento Bruto, Taxas Pagas aos Marketplaces e Lucro Líquido Real por canal de venda
+              </p>
+            </div>
+          </div>
+
+          {onNavigateToIntegrations && (
+            <button
+              type="button"
+              onClick={onNavigateToIntegrations}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] px-3.5 py-2 text-xs font-extrabold text-slate-800 dark:text-slate-100 hover:border-[#1D63FF] transition-colors cursor-pointer"
+            >
+              <span>🔗 Ir para Hub de Integrações</span>
+              <ArrowUpRight className="h-3.5 w-3.5 text-[#1D63FF]" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {channelSummary.channels.map((ch) => {
+            const styleMeta =
+              ch.channelKey === 'direta'
+                ? {
+                    badge: '🟢 Venda Direta / WhatsApp',
+                    borderClass: 'border-emerald-500/30',
+                    barColor: 'bg-emerald-500',
+                    textAccent: 'text-emerald-600 dark:text-emerald-400',
+                  }
+                : ch.channelKey === 'mercado_livre'
+                ? {
+                    badge: '🟡 Mercado Livre',
+                    borderClass: 'border-amber-500/30',
+                    barColor: 'bg-amber-400',
+                    textAccent: 'text-amber-600 dark:text-amber-400',
+                  }
+                : {
+                    badge: '🟠 Shopee',
+                    borderClass: 'border-orange-500/30',
+                    barColor: 'bg-orange-500',
+                    textAccent: 'text-orange-600 dark:text-orange-400',
+                  };
+
+            const sharePct = Math.round(ch.shareOfGrossPercent);
+            const netRetentionPct =
+              ch.grossRevenue > 0
+                ? Math.round((ch.netRevenue / ch.grossRevenue) * 100)
+                : 100;
+
+            return (
+              <div
+                key={ch.channelKey}
+                data-testid={`channel-card-${ch.channelKey}`}
+                className={`rounded-2xl border ${styleMeta.borderClass} bg-slate-50/70 dark:bg-[#0D0F14] p-4 flex flex-col justify-between`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                      {styleMeta.badge}
+                    </span>
+                    <span className="rounded-full bg-slate-200/70 dark:bg-slate-800 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 tabular-nums">
+                      {ch.ordersCount} {ch.ordersCount === 1 ? 'pedido' : 'pedidos'} ({sharePct}%)
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 border-y border-slate-200/70 dark:border-slate-800/80 py-3">
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">
+                        Fatur. Bruto
+                      </div>
+                      <div className="mt-0.5 font-mono text-xs font-extrabold tabular-nums text-slate-900 dark:text-white">
+                        {formatCurrencyBRL(ch.grossRevenue)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">
+                        Taxas Pagas
+                      </div>
+                      <div className="mt-0.5 font-mono text-xs font-bold tabular-nums text-rose-500">
+                        -{formatCurrencyBRL(ch.marketplaceFees)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">
+                        Líquido Real
+                      </div>
+                      <div className={`mt-0.5 font-mono text-xs font-extrabold tabular-nums ${styleMeta.textAccent}`}>
+                        {formatCurrencyBRL(ch.netProfit)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                    <span>Repasse Líquido ({netRetentionPct}%)</span>
+                    <span className="font-mono font-bold text-slate-700 dark:text-slate-200">
+                      {formatCurrencyBRL(ch.netRevenue)} recebidos
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div
+                      style={{ width: `${Math.max(6, sharePct)}%` }}
+                      className={`h-full rounded-full ${styleMeta.barColor}`}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* BENTO GRID ROW 1 (Inspired directly by image.png Fingoals layout) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">

@@ -1,16 +1,22 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  MarketplaceIntegrationsConfig,
   PrintTechnology,
   ProductCategoryRecord,
   ProductRecord,
 } from '../types';
 import { formatCurrencyBRL } from '../utils/pricing';
 import {
+  DEFAULT_MARKETPLACE_INTEGRATIONS,
+  getProductMarketplacePriceDetail,
+} from '../utils/marketplaceHub';
+import {
   compressImageFileToDataUrl,
   createSvgProductPreviewDataUrl,
 } from '../utils/imageHelpers';
 import { process3DFile } from '../firebase';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { MarketplaceExportModal } from './MarketplaceExportModal';
 import {
   Camera,
   CheckCircle2,
@@ -23,6 +29,7 @@ import {
   Package,
   PackagePlus,
   Plus,
+  Rocket,
   Search,
   Tag,
   Trash2,
@@ -34,6 +41,7 @@ import {
 interface ProductsCatalogViewProps {
   products: ProductRecord[];
   categories: ProductCategoryRecord[];
+  integrations?: MarketplaceIntegrationsConfig;
   onCreateCategory: (
     categoryInput: Omit<ProductCategoryRecord, 'id' | 'ownerId' | 'createdAtIso'>
   ) => void;
@@ -58,6 +66,7 @@ const CATEGORY_COLORS = [
 export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
   products,
   categories,
+  integrations = DEFAULT_MARKETPLACE_INTEGRATIONS,
   onCreateCategory,
   onDeleteCategory,
   onCreateProduct,
@@ -68,6 +77,8 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [toast, setToast] = useState<string | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [exportModalProducts, setExportModalProducts] = useState<ProductRecord[] | null>(null);
 
   // Category creation state
   const [isCategoryFormOpen, setIsCategoryFormOpen] = useState<boolean>(false);
@@ -369,6 +380,27 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
 
           <button
             type="button"
+            data-testid="btn-catalog-export-marketplace"
+            onClick={() => {
+              const target =
+                selectedProductIds.length > 0
+                  ? products.filter((p) => selectedProductIds.includes(p.id))
+                  : filteredProducts;
+              if (target.length > 0) {
+                setExportModalProducts(target);
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-xs font-extrabold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <Rocket className="h-4 w-4 text-amber-500" />
+            <span>
+              🚀 Exportar para Marketplace
+              {selectedProductIds.length > 0 ? ` (${selectedProductIds.length})` : ''}
+            </span>
+          </button>
+
+          <button
+            type="button"
             data-testid="btn-toggle-new-category"
             onClick={() => setIsCategoryFormOpen(!isCategoryFormOpen)}
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] px-4 py-2.5 text-xs font-extrabold text-slate-800 dark:text-slate-100 hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
@@ -618,12 +650,29 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
         </div>
 
         {/* DISPLAY DE PRODUTOS COM LIMITE DE ALTURA (Inspirado no layout anexo image_f16ba315.png) */}
-        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
           <span>
             Exibindo <strong className="text-slate-900 dark:text-white">{filteredProducts.length}</strong> de{' '}
             {products.length} produtos cadastrados
           </span>
-          <span>Role dentro da vitrine ou pesquise para filtrar</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedProductIds.length === filteredProducts.length) {
+                  setSelectedProductIds([]);
+                } else {
+                  setSelectedProductIds(filteredProducts.map((p) => p.id));
+                }
+              }}
+              className="text-[11px] font-bold text-[#1D63FF] dark:text-blue-400 hover:underline cursor-pointer"
+            >
+              {selectedProductIds.length === filteredProducts.length && filteredProducts.length > 0
+                ? 'Desmarcar todos'
+                : 'Selecionar todos p/ Marketplace'}
+            </button>
+            <span>Role dentro da vitrine ou pesquise para filtrar</span>
+          </div>
         </div>
 
         {filteredProducts.length === 0 ? (
@@ -645,16 +694,42 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
               const previewSrc =
                 product.imageUrl ||
                 createSvgProductPreviewDataUrl(product.sku, '#1D63FF', '#0D0F14');
+              const isSelected = selectedProductIds.includes(product.id);
+              const mlDetail = getProductMarketplacePriceDetail(product, 'mercadoLivre');
+              const shopeeDetail = getProductMarketplacePriceDetail(product, 'shopee');
+              const isMlPublished = Boolean(
+                product.mlItemId || product.publishedChannels?.includes('Mercado_Livre')
+              );
+              const isShopeePublished = Boolean(
+                product.shopeeItemId || product.publishedChannels?.includes('Shopee')
+              );
 
               return (
                 <div
                   key={product.id}
                   data-testid={`catalog-product-card-${product.id}`}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#0D0F14] p-4 shadow-sm hover:border-[#1D63FF] transition-all"
+                  className={`flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition-all ${
+                    isSelected
+                      ? 'border-[#1D63FF] bg-blue-50/30 dark:bg-[#101829]'
+                      : 'border-slate-200/90 dark:border-slate-800 bg-white dark:bg-[#0D0F14] hover:border-[#1D63FF]'
+                  }`}
                 >
-                  {/* Top Row: Photo/Icon + Title/Subtitle + Action Pill Button (matching image_f16ba315.png) */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                  {/* Top Row: Checkbox + Photo/Icon + Title/Subtitle + Action Pill Button */}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() =>
+                          setSelectedProductIds((prev) =>
+                            prev.includes(product.id)
+                              ? prev.filter((id) => id !== product.id)
+                              : [...prev, product.id]
+                          )
+                        }
+                        aria-label={`Selecionar ${product.name} para exportar`}
+                        className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#1D63FF] focus:ring-[#1D63FF] cursor-pointer"
+                      />
                       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-slate-200 dark:border-slate-700 bg-[#1D63FF]/10">
                         <img
                           src={previewSrc}
@@ -693,11 +768,11 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
                   {/* Divider */}
                   <div className="my-3.5 h-px bg-slate-100 dark:bg-slate-800/90" />
 
-                  {/* Bottom Row: Left Price & Right Cost/Stock (matching image_f16ba315.png) */}
+                  {/* Bottom Row: Left Price & Right Cost/Stock */}
                   <div className="flex items-end justify-between gap-2">
                     <div>
                       <div className="text-[10px] font-bold tracking-wider text-slate-400">
-                        VALOR UNITÁRIO
+                        VALOR DIRETO (PIX/WHATSAPP)
                       </div>
                       <div className="mt-0.5 font-mono text-base font-extrabold tabular-nums text-slate-900 dark:text-white">
                         {formatCurrencyBRL(product.unitPrice)}
@@ -740,26 +815,53 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
                     </div>
                   )}
 
-                  {/* Marketplace suggested prices badges */}
-                  {product.marketplacePrices && Object.keys(product.marketplacePrices).length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {product.marketplacePrices.shopee && (
-                        <span className="rounded-md bg-orange-500/15 border border-orange-500/30 px-1.5 py-0.5 text-[9px] font-black text-orange-600 dark:text-orange-400">
-                          Shopee: {formatCurrencyBRL(typeof product.marketplacePrices.shopee === 'number' ? product.marketplacePrices.shopee : product.marketplacePrices.shopee.listingPrice)}
+                  {/* Marketplace Channel Badges (ML & Shopee status + Gross-Up price) */}
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    <span
+                      title={
+                        isMlPublished
+                          ? `Publicado no Mercado Livre (${product.mlItemId || 'Vinculado'})`
+                          : 'Preço sugerido p/ Mercado Livre (Gross-up)'
+                      }
+                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black ${
+                        isMlPublished
+                          ? 'bg-amber-400/20 border-amber-400/50 text-amber-800 dark:text-amber-300'
+                          : 'bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400/90'
+                      }`}
+                    >
+                      <span>{isMlPublished ? '🟢 ML Ativo:' : '🟡 ML:'}</span>
+                      <span className="font-mono">{formatCurrencyBRL(mlDetail.listingPrice)}</span>
+                    </span>
+
+                    <span
+                      title={
+                        isShopeePublished
+                          ? `Publicado na Shopee (${product.shopeeItemId || 'Vinculado'})`
+                          : 'Preço sugerido p/ Shopee (Gross-up)'
+                      }
+                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black ${
+                        isShopeePublished
+                          ? 'bg-orange-500/20 border-orange-500/50 text-orange-700 dark:text-orange-300'
+                          : 'bg-orange-500/10 border-orange-500/25 text-orange-600 dark:text-orange-400/90'
+                      }`}
+                    >
+                      <span>{isShopeePublished ? '🟢 Shopee Ativo:' : '🟠 Shopee:'}</span>
+                      <span className="font-mono">{formatCurrencyBRL(shopeeDetail.listingPrice)}</span>
+                    </span>
+
+                    {product.marketplacePrices?.amazon && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 border border-blue-500/25 px-2 py-0.5 text-[10px] font-black text-blue-600 dark:text-blue-400">
+                        <span>Amazon:</span>
+                        <span className="font-mono">
+                          {formatCurrencyBRL(
+                            typeof product.marketplacePrices.amazon === 'number'
+                              ? product.marketplacePrices.amazon
+                              : product.marketplacePrices.amazon.listingPrice
+                          )}
                         </span>
-                      )}
-                      {product.marketplacePrices.mercadoLivre && (
-                        <span className="rounded-md bg-yellow-500/15 border border-yellow-500/30 px-1.5 py-0.5 text-[9px] font-black text-yellow-700 dark:text-yellow-400">
-                          ML: {formatCurrencyBRL(typeof product.marketplacePrices.mercadoLivre === 'number' ? product.marketplacePrices.mercadoLivre : product.marketplacePrices.mercadoLivre.listingPrice)}
-                        </span>
-                      )}
-                      {product.marketplacePrices.amazon && (
-                        <span className="rounded-md bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-black text-blue-600 dark:text-blue-400">
-                          Amazon: {formatCurrencyBRL(typeof product.marketplacePrices.amazon === 'number' ? product.marketplacePrices.amazon : product.marketplacePrices.amazon.listingPrice)}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Extra supplies count */}
                   {product.extraSupplies && product.extraSupplies.length > 0 && (
@@ -772,16 +874,27 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
                   )}
 
                   {/* Secondary Footer Actions */}
-                  <div className="mt-3 flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
-                    {onNavigateToOrdersWithProduct && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
+                    <div className="flex items-center gap-2">
+                      {onNavigateToOrdersWithProduct && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToOrdersWithProduct(product)}
+                          className="text-[11px] font-bold text-[#1D63FF] dark:text-blue-400 hover:underline cursor-pointer"
+                        >
+                          + Orçamento
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => onNavigateToOrdersWithProduct(product)}
-                        className="text-[11px] font-bold text-[#1D63FF] dark:text-blue-400 hover:underline cursor-pointer"
+                        data-testid={`btn-export-single-mp-${product.id}`}
+                        onClick={() => setExportModalProducts([product])}
+                        className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
                       >
-                        + Incluir em Orçamento
+                        <Rocket className="h-3 w-3 text-amber-500" />
+                        <span>Exportar / Anúncio</span>
                       </button>
-                    )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => setProductToDelete(product)}
@@ -1196,6 +1309,18 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
             showToast(`Produto "${productToDelete.name}" excluído do catálogo.`);
             setProductToDelete(null);
           }
+        }}
+      />
+
+      {/* MARKETPLACE EXPORT MODAL */}
+      <MarketplaceExportModal
+        isOpen={Boolean(exportModalProducts && exportModalProducts.length > 0)}
+        onClose={() => setExportModalProducts(null)}
+        selectedProducts={exportModalProducts || []}
+        integrations={integrations}
+        onUpdateProduct={(updated) => {
+          onUpdateProduct(updated);
+          showToast(`Produto "${updated.name}" publicado/vinculado no Marketplace!`);
         }}
       />
     </div>
