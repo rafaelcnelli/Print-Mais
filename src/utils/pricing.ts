@@ -1,6 +1,7 @@
 import {
   CalculatorParams,
   CostBreakdownResult,
+  MarketplacePriceDetail,
   PresetConfig,
   QuoteRecord,
   SpoolRecord,
@@ -137,9 +138,15 @@ export function calculate3DPrintPricing(params: CalculatorParams): CostBreakdown
   // 4. Mão de Obra = Horas_Manuais * Custo_Hora
   const laborCostUnit = safeLaborHours * safeLaborRate;
 
-  // 5. Soma dos custos acima & Adicional de Falha = (Soma dos custos acima) * (% Risco / 100)
+  // 5. Insumos Extras (Hardware, Parafusos, Ímãs, Embalagens)
+  const extraSuppliesCostUnit = (params.extraSupplies || []).reduce(
+    (acc, item) => acc + (Math.max(0, Number(item.unitCost) || 0) * Math.max(0, Number(item.quantity) || 0)),
+    0
+  );
+
+  // Soma dos custos de produção (antes do risco de falha)
   const baseSubtotalUnit =
-    materialCostUnit + energyCostUnit + depreciationCostUnit + laborCostUnit;
+    materialCostUnit + energyCostUnit + depreciationCostUnit + laborCostUnit + extraSuppliesCostUnit;
   const failureRiskCostUnit = baseSubtotalUnit * (safeFailurePct / 100);
 
   // Custo total real unitário
@@ -154,6 +161,7 @@ export function calculate3DPrintPricing(params: CalculatorParams): CostBreakdown
   const energyCostBatch = energyCostUnit * safeBatchQty;
   const depreciationCostBatch = depreciationCostUnit * safeBatchQty;
   const laborCostBatch = laborCostUnit * safeBatchQty;
+  const extraSuppliesCostBatch = extraSuppliesCostUnit * safeBatchQty;
   const failureRiskCostBatch = failureRiskCostUnit * safeBatchQty;
   const totalBatchCost = unitCost * safeBatchQty;
   const totalBatchPrice = unitPrice * safeBatchQty;
@@ -183,6 +191,7 @@ export function calculate3DPrintPricing(params: CalculatorParams): CostBreakdown
     energyCostUnit,
     depreciationCostUnit,
     laborCostUnit,
+    extraSuppliesCostUnit,
     baseSubtotalUnit,
     failureRiskCostUnit,
     unitCost,
@@ -192,6 +201,7 @@ export function calculate3DPrintPricing(params: CalculatorParams): CostBreakdown
     energyCostBatch,
     depreciationCostBatch,
     laborCostBatch,
+    extraSuppliesCostBatch,
     failureRiskCostBatch,
     totalBatchCost,
     totalBatchProfit,
@@ -203,6 +213,49 @@ export function calculate3DPrintPricing(params: CalculatorParams): CostBreakdown
     batchesToPayPrinter,
     costSharePercent,
     profitSharePercent,
+  };
+}
+
+/**
+ * Cálculo Reverso de Gross-Up para Marketplaces
+ * PrecoMarketplace = (PrecoVendaDireta + TaxaFixaR$) / (1 - (TaxaPercentual / 100))
+ */
+export function calculateMarketplaceGrossUp(
+  directPrice: number,
+  commissionPercent: number,
+  fixedFee: number,
+  platform = '',
+  platformName = ''
+): MarketplacePriceDetail {
+  const safeDirect = Math.max(0, Number(directPrice) || 0);
+  const safeRate = Math.min(0.999, Math.max(0, Number(commissionPercent) || 0) / 100);
+  const safeFixed = Math.max(0, Number(fixedFee) || 0);
+
+  if (safeDirect === 0) {
+    return {
+      platform,
+      platformName,
+      commissionPercent,
+      fixedFee,
+      listingPrice: 0,
+      feeAmount: 0,
+      netReceived: 0,
+    };
+  }
+
+  // PrecoMarketplace = (PrecoVendaDireta + TaxaFixaR$) / (1 - (TaxaPercentual / 100))
+  const listingPrice = Math.round(((safeDirect + safeFixed) / (1 - safeRate)) * 100) / 100;
+  const feeAmount = Math.round((listingPrice - safeDirect) * 100) / 100;
+  const netReceived = Math.round((listingPrice - feeAmount) * 100) / 100;
+
+  return {
+    platform,
+    platformName,
+    commissionPercent,
+    fixedFee,
+    listingPrice,
+    feeAmount,
+    netReceived,
   };
 }
 

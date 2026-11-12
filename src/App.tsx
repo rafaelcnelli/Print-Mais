@@ -9,6 +9,7 @@ import {
 import {
   auth,
   db,
+  deleteExtraSupplyFromFirestore,
   deleteProductFromFirestore,
   deleteQuoteFromFirestore,
   deleteSaleFromFirestore,
@@ -18,6 +19,7 @@ import {
   loginWithEmail,
   OperationType,
   registerWithEmail,
+  saveExtraSupplyToFirestore,
   saveProductToFirestore,
   saveQuoteToFirestore,
   saveSaleToFirestore,
@@ -25,6 +27,8 @@ import {
   saveTransactionToFirestore,
   signInWithGoogle,
   signOutUser,
+  updateExtraSupplyInFirestore,
+  updateExtraSupplyStockInFirestore,
   updateProductInFirestore,
   updateProductStockInFirestore,
   updateQuoteInFirestore,
@@ -35,6 +39,7 @@ import {
 } from './firebase';
 import {
   CalculatorParams,
+  ExtraSupplyRecord,
   ProductCategoryRecord,
   ProductRecord,
   QuoteRecord,
@@ -50,6 +55,7 @@ import {
 } from './utils/pricing';
 import {
   INITIAL_CATEGORIES,
+  INITIAL_EXTRA_SUPPLIES,
   INITIAL_PRODUCTS,
   INITIAL_QUOTES,
   INITIAL_SALES,
@@ -157,6 +163,7 @@ export default function App() {
   const [categories, setCategories] =
     useState<ProductCategoryRecord[]>(INITIAL_CATEGORIES);
   const [sales, setSales] = useState<SaleRecord[]>(INITIAL_SALES);
+  const [extraSupplies, setExtraSupplies] = useState<ExtraSupplyRecord[]>(INITIAL_EXTRA_SUPPLIES);
 
   // Calculator parameters state
   const [calcParams, setCalcParams] = useState<CalculatorParams>({
@@ -218,17 +225,20 @@ export default function App() {
         const sRaw = localStorage.getItem(getScopedKey('3dpm_spools', account.uid));
         const pRaw = localStorage.getItem(getScopedKey('3dpm_products', account.uid));
         const slRaw = localStorage.getItem(getScopedKey('3dpm_sales', account.uid));
+        const esRaw = localStorage.getItem(getScopedKey('3dpm_extra_supplies', account.uid));
         setQuotes(qRaw ? JSON.parse(qRaw) : INITIAL_QUOTES);
         setTransactions(tRaw ? JSON.parse(tRaw) : INITIAL_TRANSACTIONS);
         setSpools(sRaw ? JSON.parse(sRaw) : INITIAL_SPOOLS);
         setProducts(pRaw ? JSON.parse(pRaw) : INITIAL_PRODUCTS);
         setSales(slRaw ? JSON.parse(slRaw) : INITIAL_SALES);
+        setExtraSupplies(esRaw ? JSON.parse(esRaw) : INITIAL_EXTRA_SUPPLIES);
       } catch {
         setQuotes(INITIAL_QUOTES);
         setTransactions(INITIAL_TRANSACTIONS);
         setSpools(INITIAL_SPOOLS);
         setProducts(INITIAL_PRODUCTS);
         setSales(INITIAL_SALES);
+        setExtraSupplies(INITIAL_EXTRA_SUPPLIES);
       }
     }
   }, [account]);
@@ -242,6 +252,16 @@ export default function App() {
       );
     }
   }, [categories, account]);
+
+  // Persist extra supplies for both local and Firebase accounts
+  useEffect(() => {
+    if (account) {
+      localStorage.setItem(
+        getScopedKey('3dpm_extra_supplies', account.uid),
+        JSON.stringify(extraSupplies)
+      );
+    }
+  }, [extraSupplies, account]);
 
   // Save scoped local data when in local_account mode
   useEffect(() => {
@@ -456,12 +476,52 @@ export default function App() {
             profitMarginPercent: data.profitMarginPercent,
             stockQuantity: data.stockQuantity,
             description: data.description || '',
+            photoUrl: data.photoUrl,
+            arquivo3dUrl: data.arquivo3dUrl,
+            arquivo3dNome: data.arquivo3dNome,
+            arquivo3dTamanho: data.arquivo3dTamanho,
+            arquivo3dFormato: data.arquivo3dFormato,
+            marketplacePrices: data.marketplacePrices,
+            extraSupplies: data.extraSupplies,
             createdAtIso: new Date().toISOString(),
           };
         });
         setProducts(docs);
       },
       (err) => handleFirestoreError(err, OperationType.LIST, 'products')
+    );
+
+    const extraSuppliesQuery = query(
+      collection(db, 'extra_supplies'),
+      where('ownerId', '==', fbUser.uid)
+    );
+    const unsubExtraSupplies = onSnapshot(
+      extraSuppliesQuery,
+      (snap) => {
+        if (snap.empty) {
+          setExtraSupplies([]);
+          return;
+        }
+        const docs: ExtraSupplyRecord[] = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ownerId: data.ownerId,
+            nome: data.nome,
+            categoria: data.categoria,
+            custoUnitario: data.custoUnitario,
+            precoCompraPacote: data.precoCompraPacote,
+            quantidadeNoPacote: data.quantidadeNoPacote,
+            estoqueAtual: data.estoqueAtual,
+            estoqueMinimo: data.estoqueMinimo,
+            unidadeMedida: data.unidadeMedida || 'un',
+            observacoes: data.observacoes || '',
+            createdAtIso: new Date().toISOString(),
+          };
+        });
+        setExtraSupplies(docs);
+      },
+      (err) => handleFirestoreError(err, OperationType.LIST, 'extra_supplies')
     );
 
     const salesQuery = query(
@@ -519,6 +579,7 @@ export default function App() {
       unsubTx();
       unsubSpools();
       unsubProducts();
+      unsubExtraSupplies();
       unsubSales();
     };
   }, [isAuthReady, fbUser, account]);
@@ -773,6 +834,56 @@ export default function App() {
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
   };
 
+  // Handlers for Extra Supplies (Hardware, Magnets, Packaging, Inserts)
+  const handleAddExtraSupply = async (
+    supplyInput: Omit<ExtraSupplyRecord, 'id' | 'ownerId' | 'createdAtIso'>
+  ): Promise<ExtraSupplyRecord> => {
+    const ownerUid = account?.uid || 'local_studio';
+    const newSupply: ExtraSupplyRecord = {
+      ...supplyInput,
+      id: `supply_${Date.now()}`,
+      ownerId: ownerUid,
+      createdAtIso: new Date().toISOString(),
+    };
+
+    if (canUseCloudFirestore) {
+      await saveExtraSupplyToFirestore(newSupply);
+    } else {
+      setExtraSupplies((prev) => [newSupply, ...prev]);
+    }
+    return newSupply;
+  };
+
+  const handleUpdateExtraSupply = async (updatedSupply: ExtraSupplyRecord) => {
+    setExtraSupplies((prev) =>
+      prev.map((s) => (s.id === updatedSupply.id ? updatedSupply : s))
+    );
+    if (canUseCloudFirestore) {
+      await updateExtraSupplyInFirestore(updatedSupply);
+    }
+  };
+
+  const handleUpdateExtraSupplyStock = async (
+    supplyId: string,
+    nextStock: number
+  ) => {
+    setExtraSupplies((prev) =>
+      prev.map((s) =>
+        s.id === supplyId ? { ...s, estoqueAtual: nextStock } : s
+      )
+    );
+    if (canUseCloudFirestore) {
+      await updateExtraSupplyStockInFirestore(supplyId, nextStock);
+    }
+  };
+
+  const handleDeleteExtraSupply = async (supplyId: string) => {
+    setExtraSupplies((prev) => prev.filter((s) => s.id !== supplyId));
+    if (canUseCloudFirestore) {
+      await deleteExtraSupplyFromFirestore(supplyId);
+    }
+  };
+
   // Handlers for Sales (Registered with Products, Date, Time, Client -> Enters CashFlow)
   const handleRegisterSale = async (
     saleInput: Omit<SaleRecord, 'id' | 'ownerId' | 'transactionId' | 'createdAtIso'>
@@ -796,9 +907,11 @@ export default function App() {
       setSales((prev) => [newSale, ...prev]);
     }
 
-    // Deduct stock quantity for each sold product
+    // Deduct stock quantity and linked extra supplies for each sold product
     for (const item of newSale.items) {
-      const targetProd = products.find((p) => p.id === item.productId);
+      const targetProd = products.find(
+        (p) => p.id === item.productId || p.name === item.productName
+      );
       if (targetProd) {
         const nextStock = Math.max(0, targetProd.stockQuantity - item.quantity);
         if (canUseCloudFirestore) {
@@ -809,6 +922,21 @@ export default function App() {
               p.id === targetProd.id ? { ...p, stockQuantity: nextStock } : p
             )
           );
+        }
+
+        // Automatic stock deduction for extra supplies used in this product
+        if (targetProd.extraSupplies && targetProd.extraSupplies.length > 0) {
+          for (const extra of targetProd.extraSupplies) {
+            const totalQtyDeduction = extra.quantity * item.quantity;
+            const targetSupply = extraSupplies.find((s) => s.id === extra.supplyId);
+            if (targetSupply) {
+              const nextSupplyStock = Math.max(
+                0,
+                targetSupply.estoqueAtual - totalQtyDeduction
+              );
+              await handleUpdateExtraSupplyStock(targetSupply.id, nextSupplyStock);
+            }
+          }
         }
       }
     }
@@ -1150,7 +1278,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#EEF0F4] dark:bg-[#0B0D13] text-slate-900 dark:text-slate-100 pb-20 lg:pb-0 transition-colors">
-      <div className="mx-auto flex min-h-screen max-w-[1520px] flex-col lg:flex-row">
+      <div className="flex min-h-screen w-full flex-col lg:flex-row">
         {/* DESKTOP LEFT SIDEBAR (Hidden on Mobile, replaced by compact header + bottom nav bar) */}
         <aside className="hidden lg:flex lg:w-[276px] lg:shrink-0 flex-col justify-between border-r border-slate-200/80 dark:border-slate-800/90 bg-white dark:bg-[#11131A] p-6">
           <div>
@@ -1267,7 +1395,11 @@ export default function App() {
         </aside>
 
         {/* MAIN VIEWPORT */}
-        <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
+        <div
+          className={`flex flex-1 flex-col min-w-0 overflow-x-hidden ${
+            activeScreen === 'calculator' ? 'xl:mr-[380px] 2xl:mr-[410px]' : ''
+          }`}
+        >
           {/* TOP HEADER BAR (Compact on Mobile, Full Segmented Pills on Desktop) */}
           <header className="sticky top-0 z-30 flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-200/80 dark:border-slate-800/90 bg-white/95 dark:bg-[#11131A]/95 backdrop-blur-md px-3 py-2.5 sm:px-6 sm:py-4 max-w-full">
             {/* Mobile Brand + Active Page Title */}
@@ -1361,12 +1493,13 @@ export default function App() {
           </header>
 
           {/* MAIN WORKSPACE CONTENT */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-7">
+          <main className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 xl:px-14 xl:py-9 2xl:px-16 2xl:py-10">
             {activeScreen === 'calculator' && (
               <CalculatorView
                 params={calcParams}
                 onChangeParams={setCalcParams}
                 spools={spools}
+                extraSupplies={extraSupplies}
                 products={products}
                 categories={categories}
                 onCreateCategory={handleCreateCategory}
@@ -1427,6 +1560,11 @@ export default function App() {
                 onUpdateSpool={handleUpdateSpool}
                 onUpdateSpoolWeight={handleUpdateSpoolWeight}
                 onDeleteSpool={handleDeleteSpool}
+                extraSupplies={extraSupplies}
+                onAddExtraSupply={handleAddExtraSupply}
+                onUpdateExtraSupply={handleUpdateExtraSupply}
+                onUpdateExtraSupplyStock={handleUpdateExtraSupplyStock}
+                onDeleteExtraSupply={handleDeleteExtraSupply}
               />
             )}
 

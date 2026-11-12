@@ -289,6 +289,99 @@ test('PWA configuration and icons are present with Print and Mais', async () => 
   assert.ok(favSvg.includes('Mais'));
 });
 
+test('calculateMarketplaceGrossUp executes accurate reverse gross-up preserving direct price', async () => {
+  const { calculateMarketplaceGrossUp } = await import('./pricing');
+
+  // Direct price R$ 30,00
+  // Shopee: 20% comissão + R$ 4,00 taxa fixa
+  // Preco = (30 + 4) / (1 - 0.20) = 34 / 0.80 = 42.50
+  const shopee = calculateMarketplaceGrossUp(30, 20, 4, 'shopee', 'Shopee');
+  assert.equal(shopee.listingPrice, 42.5);
+  assert.equal(shopee.netReceived, 30);
+  assert.equal(shopee.feeAmount, 12.5);
+
+  // Mercado Livre: 16% comissão + R$ 6,00 taxa fixa
+  // Preco = (30 + 6) / (1 - 0.16) = 36 / 0.84 = 42.86
+  const ml = calculateMarketplaceGrossUp(30, 16, 6, 'mercadoLivre', 'Mercado Livre');
+  assert.equal(ml.listingPrice, 42.86);
+  assert.equal(ml.netReceived, 30);
+
+  // Amazon: 15% comissão + R$ 2,00 taxa fixa
+  // Preco = (30 + 2) / (1 - 0.15) = 32 / 0.85 = 37.65
+  const amazon = calculateMarketplaceGrossUp(30, 15, 2, 'amazon', 'Amazon');
+  assert.equal(amazon.listingPrice, 37.65);
+  assert.equal(amazon.netReceived, 30);
+});
+
+test('calculate3DPrintPricing includes extra supplies directly in unit cost and production cost', async () => {
+  const { calculate3DPrintPricing } = await import('./pricing');
+
+  const baseParams = {
+    clientName: 'Cliente Teste',
+    projectName: 'Peça com Insumos',
+    technology: 'FDM' as const,
+    presetId: 'peca_tecnica',
+    weightGrams: 50,
+    filamentPricePerKg: 100,
+    printTimeHours: 1,
+    printTimeMinutes: 0,
+    printerPowerWatts: 200,
+    energyRateKwh: 1.0,
+    printerCost: 3000,
+    printerLifespanHours: 3000,
+    laborHourlyRate: 30,
+    laborHours: 0.1,
+    batchQuantity: 2,
+    profitMarginPercent: 50,
+    failureRiskPercent: 10,
+  };
+
+  const withoutSupplies = calculate3DPrintPricing(baseParams);
+
+  const withSupplies = calculate3DPrintPricing({
+    ...baseParams,
+    extraSupplies: [
+      {
+        supplyId: 'sup_1',
+        name: 'Argola 25mm',
+        unitCost: 0.25,
+        quantity: 2,
+        totalCost: 0.5,
+      },
+      {
+        supplyId: 'sup_2',
+        name: 'Caixa Kraft',
+        unitCost: 2.5,
+        quantity: 1,
+        totalCost: 2.5,
+      },
+    ],
+  });
+
+  // Extra supplies unit cost should be 0.50 + 2.50 = 3.00
+  assert.equal(withSupplies.extraSuppliesCostUnit, 3.0);
+  assert.equal(withSupplies.extraSuppliesCostBatch, 6.0);
+  // Base subtotal must increase by exactly 3.00
+  assert.equal(
+    Math.round((withSupplies.baseSubtotalUnit - withoutSupplies.baseSubtotalUnit) * 100) / 100,
+    3.0
+  );
+  // Unit cost (which includes failure risk) should be higher
+  assert.ok(withSupplies.unitCost > withoutSupplies.unitCost);
+});
+
+test('INITIAL_EXTRA_SUPPLIES has required fields and low stock detection', async () => {
+  const { INITIAL_EXTRA_SUPPLIES } = await import('./seedData');
+
+  assert.ok(INITIAL_EXTRA_SUPPLIES.length >= 4);
+  const first = INITIAL_EXTRA_SUPPLIES[0];
+  assert.ok(first.nome);
+  assert.ok(first.categoria);
+  assert.ok(first.custoUnitario > 0);
+  assert.ok(first.estoqueAtual > 0);
+  assert.ok(first.estoqueMinimo > 0);
+});
+
 
 
 

@@ -39,6 +39,77 @@ export type SalesChannel =
   | 'Loja_Propria'
   | 'Balcao';
 
+export type ExtraSupplyCategory =
+  | 'Ferragens'
+  | 'Fixadores'
+  | 'Embalagem'
+  | 'Acabamento'
+  | 'Eletrônicos'
+  | 'Outros';
+
+export interface ExtraSupplyRecord {
+  id: string;
+  ownerId: string;
+  nome: string;
+  categoria: ExtraSupplyCategory | string;
+  custoUnitario: number;
+  precoCompraPacote?: number;
+  quantidadeNoPacote?: number;
+  estoqueAtual: number;
+  estoqueMinimo: number;
+  unidadeMedida?: string;
+  observacoes?: string;
+  createdAtIso: string;
+  // Aliases for backwards compatibility
+  name?: string;
+  category?: ExtraSupplyCategory | string;
+  unitCost?: number;
+  packageCost?: number;
+  packageQuantity?: number;
+  currentStock?: number;
+  minStock?: number;
+  unit?: string;
+  notes?: string;
+}
+
+export interface ExtraSupplyUsage {
+  supplyId: string;
+  name: string;
+  category?: string;
+  unitCost: number;
+  quantity: number;
+  totalCost: number;
+}
+
+export interface MarketplaceSimulationConfig {
+  shopeeEnabled: boolean;
+  shopeeCommissionPercent: number;
+  shopeeFixedFee: number;
+  mlEnabled: boolean;
+  mlCommissionPercent: number;
+  mlFixedFee: number;
+  amazonEnabled: boolean;
+  amazonCommissionPercent: number;
+  amazonFixedFee: number;
+}
+
+export interface MarketplacePriceDetail {
+  platform: 'shopee' | 'mercadoLivre' | 'amazon' | string;
+  platformName: string;
+  commissionPercent: number;
+  fixedFee: number;
+  listingPrice: number;
+  feeAmount: number;
+  netReceived: number;
+}
+
+export interface MarketplacePriceSummary {
+  shopee?: MarketplacePriceDetail | number;
+  mercadoLivre?: MarketplacePriceDetail | number;
+  amazon?: MarketplacePriceDetail | number;
+  [key: string]: any;
+}
+
 export interface CalculatorParams {
   clientName: string;
   projectName: string;
@@ -61,6 +132,10 @@ export interface CalculatorParams {
   // Margens e Riscos
   profitMarginPercent: number;
   failureRiskPercent: number;
+  // Insumos Extras (Hardware / Embalagens)
+  extraSupplies?: ExtraSupplyUsage[];
+  // Simulação de Marketplaces
+  marketplaceConfig?: MarketplaceSimulationConfig;
 }
 
 export interface CostBreakdownResult {
@@ -70,6 +145,7 @@ export interface CostBreakdownResult {
   energyCostUnit: number;
   depreciationCostUnit: number;
   laborCostUnit: number;
+  extraSuppliesCostUnit: number;
   baseSubtotalUnit: number;
   failureRiskCostUnit: number;
   unitCost: number;
@@ -80,6 +156,7 @@ export interface CostBreakdownResult {
   energyCostBatch: number;
   depreciationCostBatch: number;
   laborCostBatch: number;
+  extraSuppliesCostBatch: number;
   failureRiskCostBatch: number;
   totalBatchCost: number;
   totalBatchProfit: number;
@@ -175,6 +252,15 @@ export interface ProductRecord {
   description: string;
   imageUrl?: string;
   paramsSnapshot?: CalculatorParams;
+  // Insumos Extras
+  extraSupplies?: ExtraSupplyUsage[];
+  // Preços sugeridos de marketplace
+  marketplacePrices?: MarketplacePriceSummary;
+  // Arquivo 3D anexado
+  arquivo3dUrl?: string;
+  arquivo3dNome?: string;
+  arquivo3dTamanho?: string;
+  arquivo3dFormato?: string;
   createdAtIso: string;
 }
 

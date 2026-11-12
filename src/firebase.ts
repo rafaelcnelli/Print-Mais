@@ -20,6 +20,7 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 import {
   BLUEPRINT_CONSTRAINTS,
+  ExtraSupplyRecord,
   ProductRecord,
   QuoteRecord,
   SaleRecord,
@@ -478,4 +479,118 @@ export async function deleteSaleFromFirestore(saleId: string): Promise<void> {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
+
+export async function saveExtraSupplyToFirestore(supply: ExtraSupplyRecord): Promise<void> {
+  const safeId = sanitizeId(supply.id);
+  const path = `extra_supplies/${safeId}`;
+  try {
+    await setDoc(doc(db, 'extra_supplies', safeId), {
+      ownerId: supply.ownerId,
+      nome: clampString(supply.nome || supply.name || 'Insumo Extra', 120, 'Insumo Extra'),
+      name: clampString(supply.nome || supply.name || 'Insumo Extra', 120, 'Insumo Extra'),
+      categoria: supply.categoria || supply.category || 'Ferragens',
+      category: supply.categoria || supply.category || 'Ferragens',
+      precoCompraPacote: Math.max(0, Number(supply.precoCompraPacote) || 0),
+      quantidadeNoPacote: Math.max(1, Math.round(Number(supply.quantidadeNoPacote) || 1)),
+      custoUnitario: Math.max(0, Number(supply.custoUnitario) || 0),
+      estoqueAtual: Math.max(0, Math.round(Number(supply.estoqueAtual) || 0)),
+      estoqueMinimo: Math.max(0, Math.round(Number(supply.estoqueMinimo) || 0)),
+      unit: supply.unidadeMedida || supply.unit || 'un',
+      notes: (supply.observacoes || supply.notes || '').trim().slice(0, 300),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function updateExtraSupplyInFirestore(supply: ExtraSupplyRecord): Promise<void> {
+  const safeId = sanitizeId(supply.id);
+  const path = `extra_supplies/${safeId}`;
+  try {
+    await updateDoc(doc(db, 'extra_supplies', safeId), {
+      nome: clampString(supply.nome || supply.name || 'Insumo Extra', 120, 'Insumo Extra'),
+      name: clampString(supply.nome || supply.name || 'Insumo Extra', 120, 'Insumo Extra'),
+      categoria: supply.categoria || supply.category || 'Ferragens',
+      category: supply.categoria || supply.category || 'Ferragens',
+      precoCompraPacote: Math.max(0, Number(supply.precoCompraPacote) || 0),
+      quantidadeNoPacote: Math.max(1, Math.round(Number(supply.quantidadeNoPacote) || 1)),
+      custoUnitario: Math.max(0, Number(supply.custoUnitario) || 0),
+      estoqueAtual: Math.max(0, Math.round(Number(supply.estoqueAtual) || 0)),
+      estoqueMinimo: Math.max(0, Math.round(Number(supply.estoqueMinimo) || 0)),
+      unit: supply.unidadeMedida || supply.unit || 'un',
+      notes: (supply.observacoes || supply.notes || '').trim().slice(0, 300),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function updateExtraSupplyStockInFirestore(
+  supplyId: string,
+  estoqueAtual: number
+): Promise<void> {
+  const safeId = sanitizeId(supplyId);
+  const path = `extra_supplies/${safeId}`;
+  try {
+    await updateDoc(doc(db, 'extra_supplies', safeId), {
+      estoqueAtual: Math.max(0, Math.round(Number(estoqueAtual) || 0)),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function deleteExtraSupplyFromFirestore(supplyId: string): Promise<void> {
+  const safeId = sanitizeId(supplyId);
+  const path = `extra_supplies/${safeId}`;
+  try {
+    await deleteDoc(doc(db, 'extra_supplies', safeId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+/**
+ * Process uploaded 3D printing project file (.stl, .3mf, .gcode, .obj, .zip).
+ * Returns base64 DataURL (works offline & online), human formatted size (e.g. 4.2 MB) and detected format.
+ */
+export async function process3DFile(file: File): Promise<{
+  arquivo3dUrl: string;
+  arquivo3dNome: string;
+  arquivo3dTamanho: string;
+  arquivo3dFormato: string;
+}> {
+  return new Promise((resolve, reject) => {
+    const extMatch = file.name.match(/\.([0-9a-z]+)$/i);
+    const formato = extMatch ? `.${extMatch[1].toLowerCase()}` : '.stl';
+
+    // Format file size
+    const bytes = file.size;
+    let tamanhoFormatted = `${bytes} B`;
+    if (bytes >= 1024 * 1024) {
+      tamanhoFormatted = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    } else if (bytes >= 1024) {
+      tamanhoFormatted = `${(bytes / 1024).toFixed(0)} KB`;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve({
+        arquivo3dUrl: reader.result as string,
+        arquivo3dNome: file.name,
+        arquivo3dTamanho: tamanhoFormatted,
+        arquivo3dFormato: formato,
+      });
+    };
+    reader.onerror = () => {
+      reject(new Error('Falha ao processar arquivo 3D'));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 

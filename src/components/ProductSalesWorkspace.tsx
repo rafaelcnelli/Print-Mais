@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   CalculatorParams,
   CostBreakdownResult,
+  MarketplacePriceDetail,
+  MarketplacePriceSummary,
   PaymentMethod,
   ProductCategoryRecord,
   ProductRecord,
@@ -10,19 +12,24 @@ import {
   SalesChannel,
 } from '../types';
 import { formatCurrencyBRL } from '../utils/pricing';
+import { process3DFile } from '../firebase';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import {
   ArrowUpRight,
+  Boxes,
   Calendar,
   CheckCircle2,
   Clock,
   CreditCard,
+  Download,
+  FileCode,
   Package,
   PackagePlus,
   Plus,
   ShoppingBag,
   ShoppingCart,
   Trash2,
+  Upload,
   User,
   Wallet,
   X,
@@ -49,6 +56,7 @@ interface ProductSalesWorkspaceProps {
   setIsCreateProductModalOpen: (open: boolean) => void;
   isRegisterSaleModalOpen: boolean;
   setIsRegisterSaleModalOpen: (open: boolean) => void;
+  marketplaceSummaries?: MarketplacePriceDetail[];
 }
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -106,6 +114,7 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
   setIsCreateProductModalOpen,
   isRegisterSaleModalOpen,
   setIsRegisterSaleModalOpen,
+  marketplaceSummaries = [],
 }) => {
   const availableCategories = useMemo(() => {
     if (categories && categories.length > 0) {
@@ -133,6 +142,33 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
     `Peça ${currentCalcParams.technology} (${currentCalcParams.weightGrams}g)`
   );
 
+  // 3D Printing Project File Upload State
+  const [arquivo3dUrl, setArquivo3dUrl] = useState<string>('');
+  const [arquivo3dNome, setArquivo3dNome] = useState<string>('');
+  const [arquivo3dTamanho, setArquivo3dTamanho] = useState<string>('');
+  const [arquivo3dFormato, setArquivo3dFormato] = useState<string>('');
+  const [isProcessing3DFile, setIsProcessing3DFile] = useState(false);
+  const fileInput3DRef = useRef<HTMLInputElement>(null);
+
+  const handle3DFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsProcessing3DFile(true);
+      const res = await process3DFile(file);
+      setArquivo3dUrl(res.arquivo3dUrl);
+      setArquivo3dNome(res.arquivo3dNome);
+      setArquivo3dTamanho(res.arquivo3dTamanho);
+      setArquivo3dFormato(res.arquivo3dFormato);
+      notify(`Arquivo 3D "${res.arquivo3dNome}" (${res.arquivo3dTamanho}) anexado!`);
+    } catch {
+      notify('Não foi possível processar o arquivo 3D.');
+    } finally {
+      setIsProcessing3DFile(false);
+      e.target.value = '';
+    }
+  };
+
   // Sync product modal fields when modal opens
   React.useEffect(() => {
     if (isCreateProductModalOpen) {
@@ -143,6 +179,10 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
       setProdDescription(
         `Impressão ${currentCalcParams.technology} · ${currentCalcParams.weightGrams}g · ${currentCalcParams.printTimeHours}h${currentCalcParams.printTimeMinutes}m`
       );
+      setArquivo3dUrl('');
+      setArquivo3dNome('');
+      setArquivo3dTamanho('');
+      setArquivo3dFormato('');
     }
   }, [
     isCreateProductModalOpen,
@@ -233,8 +273,17 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
     openSaleAfter = false
   ) => {
     e.preventDefault();
-    const parsedPrice = Math.max(0.01, parseFloat(prodCustomPrice) || currentBreakdown.unitPrice);
-    const parsedStock = Math.max(0, parseInt(prodStock, 10) || 0);
+    const mpPrices: ProductRecord['marketplacePrices'] = {};
+    if (marketplaceSummaries && marketplaceSummaries.length > 0) {
+      for (const ms of marketplaceSummaries) {
+        if (ms.platform === 'shopee') mpPrices.shopee = ms;
+        if (ms.platform === 'mercadoLivre') mpPrices.mercadoLivre = ms;
+        if (ms.platform === 'amazon') mpPrices.amazon = ms;
+      }
+    }
+
+    const parsedPrice = parseFloat(prodCustomPrice) || currentBreakdown.unitPrice;
+    const parsedStock = parseInt(prodStock, 10) || 0;
 
     const created = await onCreateProduct({
       name: prodName.trim() || currentCalcParams.projectName || 'Produto 3D',
@@ -251,6 +300,12 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
       stockQuantity: parsedStock,
       description: prodDescription.trim(),
       paramsSnapshot: { ...currentCalcParams },
+      extraSupplies: currentCalcParams.extraSupplies,
+      marketplacePrices: Object.keys(mpPrices).length > 0 ? mpPrices : undefined,
+      arquivo3dUrl: arquivo3dUrl || undefined,
+      arquivo3dNome: arquivo3dNome || undefined,
+      arquivo3dTamanho: arquivo3dTamanho || undefined,
+      arquivo3dFormato: arquivo3dFormato || undefined,
     });
 
     setIsCreateProductModalOpen(false);
@@ -611,6 +666,63 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
                         <p className="mt-2 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400">
                           {prod.description}
                         </p>
+                      )}
+
+                      {/* 3D Model Attachment Badge & Download */}
+                      {prod.arquivo3dUrl && prod.arquivo3dNome && (
+                        <div className="mt-2.5 flex items-center justify-between rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/50 px-2.5 py-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="rounded bg-[#1D63FF] px-1.5 py-0.5 font-mono text-[9px] font-black text-white uppercase">
+                              {prod.arquivo3dFormato?.replace('.', '') || '3D'}
+                            </span>
+                            <span className="truncate font-mono text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                              {prod.arquivo3dNome}
+                            </span>
+                            {prod.arquivo3dTamanho && (
+                              <span className="text-[9px] text-slate-400 shrink-0">({prod.arquivo3dTamanho})</span>
+                            )}
+                          </div>
+                          <a
+                            href={prod.arquivo3dUrl}
+                            download={prod.arquivo3dNome}
+                            title="Baixar arquivo 3D"
+                            className="inline-flex items-center gap-1 rounded-lg bg-white dark:bg-[#14171F] px-2 py-1 text-[10px] font-extrabold text-[#1D63FF] shadow-xs hover:bg-[#1D63FF] hover:text-white transition-colors ml-1.5 shrink-0"
+                          >
+                            <Download className="h-3 w-3" />
+                            Baixar 3D
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Marketplace suggested prices badges */}
+                      {prod.marketplacePrices && Object.keys(prod.marketplacePrices).length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {prod.marketplacePrices.shopee && (
+                            <span className="rounded-md bg-orange-500/15 border border-orange-500/30 px-1.5 py-0.5 text-[9px] font-black text-orange-600 dark:text-orange-400">
+                              Shopee: {formatCurrencyBRL(typeof prod.marketplacePrices.shopee === 'number' ? prod.marketplacePrices.shopee : prod.marketplacePrices.shopee.listingPrice)}
+                            </span>
+                          )}
+                          {prod.marketplacePrices.mercadoLivre && (
+                            <span className="rounded-md bg-yellow-500/15 border border-yellow-500/30 px-1.5 py-0.5 text-[9px] font-black text-yellow-700 dark:text-yellow-400">
+                              ML: {formatCurrencyBRL(typeof prod.marketplacePrices.mercadoLivre === 'number' ? prod.marketplacePrices.mercadoLivre : prod.marketplacePrices.mercadoLivre.listingPrice)}
+                            </span>
+                          )}
+                          {prod.marketplacePrices.amazon && (
+                            <span className="rounded-md bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-black text-blue-600 dark:text-blue-400">
+                              Amazon: {formatCurrencyBRL(typeof prod.marketplacePrices.amazon === 'number' ? prod.marketplacePrices.amazon : prod.marketplacePrices.amazon.listingPrice)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Extra supplies */}
+                      {prod.extraSupplies && prod.extraSupplies.length > 0 && (
+                        <div className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                          <span>🔩</span>
+                          <span>
+                            {prod.extraSupplies.length} {prod.extraSupplies.length === 1 ? 'insumo extra' : 'insumos extras'}
+                          </span>
+                        </div>
                       )}
                     </div>
 
@@ -1360,6 +1472,100 @@ export const ProductSalesWorkspace: React.FC<ProductSalesWorkspaceProps> = ({
                   />
                 </div>
               </div>
+
+              {/* 📦 Arquivo de Impressão 3D (Opcional) */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] p-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📦</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Arquivo de Impressão 3D (Opcional)
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        Formatos aceitos: .stl, .3mf, .gcode, .obj, .zip
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={fileInput3DRef}
+                    accept=".stl,.3mf,.gcode,.obj,.zip"
+                    onChange={handle3DFileSelected}
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    disabled={isProcessing3DFile}
+                    onClick={() => fileInput3DRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#14171F] px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-200 hover:border-[#1D63FF] transition-colors"
+                  >
+                    <Upload className="h-3.5 w-3.5 text-[#1D63FF]" />
+                    <span>{arquivo3dNome ? 'Trocar Arquivo' : 'Anexar Arquivo 3D'}</span>
+                  </button>
+                </div>
+
+                {arquivo3dNome && (
+                  <div className="mt-2.5 flex items-center justify-between rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="rounded bg-[#1D63FF] px-2 py-0.5 font-mono text-[10px] font-black text-white uppercase">
+                        {arquivo3dFormato?.replace('.', '') || '3D'}
+                      </span>
+                      <span className="truncate font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {arquivo3dNome}
+                      </span>
+                      {arquivo3dTamanho && (
+                        <span className="text-[10px] text-slate-400">({arquivo3dTamanho})</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setArquivo3dUrl('');
+                        setArquivo3dNome('');
+                        setArquivo3dTamanho('');
+                        setArquivo3dFormato('');
+                      }}
+                      className="text-[10px] font-bold text-rose-500 hover:underline ml-2"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Extra Supplies & Marketplace Summary Pills */}
+              {(Boolean(currentCalcParams.extraSupplies?.length) || marketplaceSummaries.length > 0) && (
+                <div className="space-y-1.5 rounded-2xl bg-slate-50 dark:bg-[#0D0F14] p-3 text-[11px]">
+                  {currentCalcParams.extraSupplies && currentCalcParams.extraSupplies.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                      <span>🔩</span>
+                      <span>
+                        Insumos Extras embutidos:{' '}
+                        <strong>
+                          {currentCalcParams.extraSupplies.map((s) => `${s.quantity}x ${s.name}`).join(', ')}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+
+                  {marketplaceSummaries.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                      <span>🛒</span>
+                      <span>
+                        Marketplaces vinculados:{' '}
+                        <strong>
+                          {marketplaceSummaries
+                            .map((m) => `${m.platformName} (${formatCurrencyBRL(m.listingPrice)})`)
+                            .join(' · ')}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <label

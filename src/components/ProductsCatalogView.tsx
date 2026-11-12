@@ -9,11 +9,14 @@ import {
   compressImageFileToDataUrl,
   createSvgProductPreviewDataUrl,
 } from '../utils/imageHelpers';
+import { process3DFile } from '../firebase';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 import {
   Camera,
   CheckCircle2,
+  Download,
   Edit3,
+  FileCode,
   FolderPlus,
   Image as ImageIcon,
   Layers,
@@ -101,6 +104,14 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
   const [prodFormError, setProdFormError] = useState<string | null>(null);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState<boolean>(false);
 
+  // 3D Printing Project File Upload State
+  const [prod3dUrl, setProd3dUrl] = useState<string>('');
+  const [prod3dNome, setProd3dNome] = useState<string>('');
+  const [prod3dTamanho, setProd3dTamanho] = useState<string>('');
+  const [prod3dFormato, setProd3dFormato] = useState<string>('');
+  const [isProcessing3DFile, setIsProcessing3DFile] = useState<boolean>(false);
+  const fileInput3DRef = useRef<HTMLInputElement | null>(null);
+
   // Refs for Mobile Camera and File Upload
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
@@ -108,6 +119,25 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3600);
+  };
+
+  const handle3DFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsProcessing3DFile(true);
+      const res = await process3DFile(file);
+      setProd3dUrl(res.arquivo3dUrl);
+      setProd3dNome(res.arquivo3dNome);
+      setProd3dTamanho(res.arquivo3dTamanho);
+      setProd3dFormato(res.arquivo3dFormato);
+      showToast(`Arquivo 3D "${res.arquivo3dNome}" (${res.arquivo3dTamanho}) anexado!`);
+    } catch {
+      setProdFormError('Não foi possível processar o arquivo 3D.');
+    } finally {
+      setIsProcessing3DFile(false);
+      e.target.value = '';
+    }
   };
 
   // All available category names (combining registered categories + any category strings on products)
@@ -157,6 +187,10 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
     setProdStock('10');
     setProdDesc('');
     setProdImageUrl('');
+    setProd3dUrl('');
+    setProd3dNome('');
+    setProd3dTamanho('');
+    setProd3dFormato('');
     setProdFormError(null);
     setIsProductModalOpen(true);
   };
@@ -176,6 +210,10 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
     setProdStock(String(product.stockQuantity));
     setProdDesc(product.description || '');
     setProdImageUrl(product.imageUrl || '');
+    setProd3dUrl(product.arquivo3dUrl || '');
+    setProd3dNome(product.arquivo3dNome || '');
+    setProd3dTamanho(product.arquivo3dTamanho || '');
+    setProd3dFormato(product.arquivo3dFormato || '');
     setProdFormError(null);
     setIsProductModalOpen(true);
   };
@@ -268,6 +306,10 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
         stockQuantity: Math.max(0, parseInt(prodStock, 10) || 0),
         description: prodDesc.trim(),
         imageUrl: finalImageUrl,
+        arquivo3dUrl: prod3dUrl || undefined,
+        arquivo3dNome: prod3dNome || undefined,
+        arquivo3dTamanho: prod3dTamanho || undefined,
+        arquivo3dFormato: prod3dFormato || undefined,
       });
       showToast(`Produto "${trimmedName}" atualizado!`);
     } else {
@@ -289,6 +331,10 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
         stockQuantity: Math.max(0, parseInt(prodStock, 10) || 0),
         description: prodDesc.trim(),
         imageUrl: finalImageUrl,
+        arquivo3dUrl: prod3dUrl || undefined,
+        arquivo3dNome: prod3dNome || undefined,
+        arquivo3dTamanho: prod3dTamanho || undefined,
+        arquivo3dFormato: prod3dFormato || undefined,
       });
       showToast(`Novo produto "${trimmedName}" criado no catálogo!`);
     }
@@ -668,6 +714,63 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
                     </div>
                   </div>
 
+                  {/* 3D Model Attachment Badge & Quick Download Button */}
+                  {product.arquivo3dUrl && product.arquivo3dNome && (
+                    <div className="mt-3 flex items-center justify-between rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 dark:border-blue-900/50 px-3 py-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="rounded bg-[#1D63FF] px-1.5 py-0.5 font-mono text-[9px] font-black text-white uppercase">
+                          {product.arquivo3dFormato?.replace('.', '') || '3D'}
+                        </span>
+                        <span className="truncate font-mono text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                          {product.arquivo3dNome}
+                        </span>
+                        {product.arquivo3dTamanho && (
+                          <span className="text-[9px] text-slate-400 shrink-0">({product.arquivo3dTamanho})</span>
+                        )}
+                      </div>
+                      <a
+                        href={product.arquivo3dUrl}
+                        download={product.arquivo3dNome}
+                        title="Baixar e Fatiar Arquivo 3D"
+                        className="inline-flex items-center gap-1 rounded-lg bg-[#1D63FF] px-2.5 py-1 text-[10px] font-extrabold text-white shadow-xs hover:bg-blue-600 transition-colors ml-1.5 shrink-0"
+                      >
+                        <Download className="h-3 w-3" />
+                        Baixar Arquivo 3D
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Marketplace suggested prices badges */}
+                  {product.marketplacePrices && Object.keys(product.marketplacePrices).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {product.marketplacePrices.shopee && (
+                        <span className="rounded-md bg-orange-500/15 border border-orange-500/30 px-1.5 py-0.5 text-[9px] font-black text-orange-600 dark:text-orange-400">
+                          Shopee: {formatCurrencyBRL(typeof product.marketplacePrices.shopee === 'number' ? product.marketplacePrices.shopee : product.marketplacePrices.shopee.listingPrice)}
+                        </span>
+                      )}
+                      {product.marketplacePrices.mercadoLivre && (
+                        <span className="rounded-md bg-yellow-500/15 border border-yellow-500/30 px-1.5 py-0.5 text-[9px] font-black text-yellow-700 dark:text-yellow-400">
+                          ML: {formatCurrencyBRL(typeof product.marketplacePrices.mercadoLivre === 'number' ? product.marketplacePrices.mercadoLivre : product.marketplacePrices.mercadoLivre.listingPrice)}
+                        </span>
+                      )}
+                      {product.marketplacePrices.amazon && (
+                        <span className="rounded-md bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.5 text-[9px] font-black text-blue-600 dark:text-blue-400">
+                          Amazon: {formatCurrencyBRL(typeof product.marketplacePrices.amazon === 'number' ? product.marketplacePrices.amazon : product.marketplacePrices.amazon.listingPrice)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Extra supplies count */}
+                  {product.extraSupplies && product.extraSupplies.length > 0 && (
+                    <div className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      <span>🔩</span>
+                      <span>
+                        {product.extraSupplies.length} {product.extraSupplies.length === 1 ? 'insumo extra vinculado' : 'insumos extras vinculados'}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Secondary Footer Actions */}
                   <div className="mt-3 flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
                     {onNavigateToOrdersWithProduct && (
@@ -820,6 +923,71 @@ export const ProductsCatalogView: React.FC<ProductsCatalogViewProps> = ({
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* 📦 Arquivo de Impressão 3D (Opcional) */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D0F14] p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-xl shrink-0">
+                      📦
+                    </span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Arquivo de Impressão 3D (Opcional)
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Formatos aceitos: .stl, .3mf, .gcode, .obj, .zip
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={fileInput3DRef}
+                    accept=".stl,.3mf,.gcode,.obj,.zip"
+                    onChange={handle3DFileSelected}
+                    className="hidden"
+                  />
+
+                  <button
+                    type="button"
+                    disabled={isProcessing3DFile}
+                    onClick={() => fileInput3DRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#14171F] px-3.5 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 hover:border-[#1D63FF] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  >
+                    <Upload className="h-3.5 w-3.5 text-[#1D63FF]" />
+                    <span>{prod3dNome ? 'Trocar Arquivo 3D' : 'Anexar Arquivo 3D'}</span>
+                  </button>
+                </div>
+
+                {prod3dNome && (
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 px-3.5 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="rounded bg-[#1D63FF] px-2 py-0.5 font-mono text-[10px] font-black text-white uppercase">
+                        {prod3dFormato?.replace('.', '') || '3D'}
+                      </span>
+                      <span className="truncate font-mono text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {prod3dNome}
+                      </span>
+                      {prod3dTamanho && (
+                        <span className="text-[10px] text-slate-400 shrink-0">({prod3dTamanho})</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProd3dUrl('');
+                        setProd3dNome('');
+                        setProd3dTamanho('');
+                        setProd3dFormato('');
+                      }}
+                      className="text-xs font-bold text-rose-500 hover:underline ml-2 cursor-pointer"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Product Details Form Grid */}

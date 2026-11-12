@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { MaterialType, SpoolRecord } from '../types';
+import { ExtraSupplyRecord, MaterialType, SpoolRecord } from '../types';
 import { formatCurrencyBRL } from '../utils/pricing';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ExtraSuppliesManager } from './ExtraSuppliesManager';
 import {
   AlertTriangle,
+  Boxes,
   CheckCircle2,
   Disc,
   Edit3,
@@ -42,6 +44,13 @@ interface InventoryViewProps {
   onUpdateSpoolWeight: (spoolId: string, nextWeightGrams: number) => void;
   onUpdateSpool?: (updatedSpool: SpoolRecord) => void;
   onDeleteSpool: (spoolId: string) => void;
+  extraSupplies?: ExtraSupplyRecord[];
+  onAddExtraSupply?: (
+    supply: Omit<ExtraSupplyRecord, 'id' | 'ownerId' | 'createdAtIso'>
+  ) => void;
+  onUpdateExtraSupply?: (supply: ExtraSupplyRecord) => void;
+  onUpdateExtraSupplyStock?: (supplyId: string, nextStock: number) => void;
+  onDeleteExtraSupply?: (supplyId: string) => void;
 }
 
 export const InventoryView: React.FC<InventoryViewProps> = ({
@@ -50,7 +59,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
   onUpdateSpoolWeight,
   onUpdateSpool,
   onDeleteSpool,
+  extraSupplies = [],
+  onAddExtraSupply,
+  onUpdateExtraSupply,
+  onUpdateExtraSupplyStock,
+  onDeleteExtraSupply,
 }) => {
+  const [activeTab, setActiveTab] = useState<'spools' | 'extraSupplies'>('spools');
   const [spoolName, setSpoolName] = useState('');
   const [spoolBrand, setSpoolBrand] = useState<string>('Voolt3D');
   const [customBrand, setCustomBrand] = useState<string>('');
@@ -281,8 +296,53 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         )}
       </div>
 
-      {/* Top Inventory KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* Subtab navigation */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('spools')}
+          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black transition-all ${
+            activeTab === 'spools'
+              ? 'bg-[#1D63FF] text-white shadow-md'
+              : 'border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] text-slate-600 dark:text-slate-300 hover:border-slate-300'
+          }`}
+        >
+          <Layers className="h-4 w-4" />
+          <span>🧵 Bobinas & Resinas</span>
+          <span className="rounded-full bg-black/10 dark:bg-white/20 px-2 py-0.5 text-[10px]">
+            {spools.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('extraSupplies')}
+          className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-black transition-all ${
+            activeTab === 'extraSupplies'
+              ? 'bg-[#1D63FF] text-white shadow-md'
+              : 'border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#14171F] text-slate-600 dark:text-slate-300 hover:border-slate-300'
+          }`}
+        >
+          <Boxes className="h-4 w-4" />
+          <span>🔩 Insumos Extras (Hardware/Embalagens)</span>
+          <span className="rounded-full bg-black/10 dark:bg-white/20 px-2 py-0.5 text-[10px]">
+            {extraSupplies.length}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'extraSupplies' ? (
+        <ExtraSuppliesManager
+          supplies={extraSupplies}
+          onAddSupply={(sup) => onAddExtraSupply?.(sup)}
+          onUpdateSupply={(sup) => onUpdateExtraSupply?.(sup)}
+          onUpdateStock={(id, stock) => onUpdateExtraSupplyStock?.(id, stock)}
+          onDeleteSupply={(id) => onDeleteExtraSupply?.(id)}
+        />
+      ) : (
+        <>
+          {/* Top Inventory KPIs */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-3xl bg-[#0D0F14] dark:bg-[#1D63FF] p-5 text-white shadow-lg">
           <div className="text-xs font-semibold text-slate-300 dark:text-blue-100">
             Material Total Disponível
@@ -960,6 +1020,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           }
         }}
       />
+        </>
+      )}
     </div>
   );
 };
